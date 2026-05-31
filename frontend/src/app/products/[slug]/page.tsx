@@ -2,10 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '../../../lib/api';
-import { Header } from '../../../components/Header';
-import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Header } from '@/components/Header';
+import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock, Heart, Minus, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/context/AuthContext';
+import { useCart } from '@/context/CartContext';
+import { useWishlist } from '@/context/WishlistContext';
 
 interface ProductAttribute {
   id: string;
@@ -47,12 +50,77 @@ interface Product {
 export default function ProductDetailPage() {
   const { slug } = useParams();
   const router = useRouter();
+  const { user } = useAuth();
+  const { addToCart } = useCart();
+  const { wishlist, addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Variant Selection State
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+
+  // Cart & Wishlist Actions State
+  const [quantity, setQuantity] = useState<number>(1);
+  const [adding, setAdding] = useState<boolean>(false);
+  const [wishlistToggling, setWishlistToggling] = useState<boolean>(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    setAdding(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    
+    const res = await addToCart(product.id, selectedVariant?.id, quantity);
+    setAdding(false);
+    
+    if (res.success) {
+      setSuccessMessage(res.message || 'Item added to cart!');
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } else {
+      setErrorMessage(res.message || 'Failed to add item to cart.');
+      setTimeout(() => setErrorMessage(null), 5000);
+    }
+  };
+
+  const handleWishlistToggle = async () => {
+    if (!product) return;
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+    
+    const wishlistItem = wishlist?.items.find(
+      (item) => item.productId === product.id && item.variantId === (selectedVariant?.id || null)
+    );
+    
+    setWishlistToggling(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    
+    if (wishlistItem) {
+      await removeFromWishlist(wishlistItem.id);
+      setSuccessMessage('Removed item from wishlist');
+      setTimeout(() => setSuccessMessage(null), 5000);
+    } else {
+      const res = await addToWishlist(product.id, selectedVariant?.id || null);
+      if (res.success) {
+        setSuccessMessage(res.message || 'Saved item to wishlist');
+        setTimeout(() => setSuccessMessage(null), 5000);
+      } else {
+        setErrorMessage(res.message || 'Failed to save to wishlist.');
+        setTimeout(() => setErrorMessage(null), 5000);
+      }
+    }
+    setWishlistToggling(false);
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -171,6 +239,20 @@ export default function ProductDetailPage() {
                 </p>
               </div>
 
+              {successMessage && (
+                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm text-emerald-450 flex items-start space-x-2">
+                  <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
+              {errorMessage && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-400 flex items-start space-x-2">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
+
               {/* Price Panel */}
               <div className="rounded-2xl border border-slate-900 bg-slate-900/10 p-6 flex items-center justify-between">
                 <div>
@@ -240,15 +322,65 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              {/* Action Buttons (Mock Checkout) */}
-              <div className="pt-4 flex gap-4">
+              {/* Quantity Adjuster */}
+              {!isOutOfStock && user?.role === 'CUSTOMER' && (
+                <div className="flex items-center gap-3 pt-2">
+                  <span className="text-xs font-semibold text-slate-400 font-mono uppercase tracking-wider">Quantity:</span>
+                  <div className="flex items-center rounded-xl bg-slate-900 border border-slate-850 p-1">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-805 text-slate-400 hover:text-white"
+                    >
+                      <Minus className="h-3.5 w-3.5" />
+                    </button>
+                    <span className="w-8 text-center text-xs font-bold font-mono">
+                      {quantity}
+                    </span>
+                    <button
+                      onClick={() => setQuantity(Math.min(stockCount, quantity + 1))}
+                      className="h-8 w-8 flex items-center justify-center rounded-lg hover:bg-slate-805 text-slate-400 hover:text-white"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex gap-4">
                 <button
-                  disabled
-                  className="flex-1 inline-flex h-12 items-center justify-center rounded-xl bg-slate-900 border border-slate-800 font-semibold text-slate-500 opacity-50 cursor-not-allowed"
+                  onClick={handleAddToCart}
+                  disabled={isOutOfStock || adding || !!(user && user.role !== 'CUSTOMER')}
+                  className="flex-1 inline-flex h-12 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 font-semibold text-white shadow-xl shadow-indigo-500/20 hover:from-indigo-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  <span>Cart (Unlocks in Phase 3)</span>
+                  {adding ? (
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                  ) : (
+                    <ShoppingCart className="h-5 w-5 mr-2" />
+                  )}
+                  <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
                 </button>
+
+                {user && user.role === 'CUSTOMER' && (
+                  <button
+                    onClick={handleWishlistToggle}
+                    disabled={wishlistToggling}
+                    className="h-12 w-12 flex items-center justify-center rounded-xl border border-slate-800 hover:border-slate-700 bg-slate-900/60 text-slate-400 hover:text-red-400 transition-all focus:outline-none"
+                    title="Toggle Wishlist"
+                  >
+                    {wishlistToggling ? (
+                      <Loader2 className="animate-spin h-5 w-5" />
+                    ) : (
+                      <Heart
+                        className={`h-5 w-5 ${
+                          isInWishlist(product.id, selectedVariant?.id || null)
+                            ? 'text-red-500 fill-red-500'
+                            : 'text-slate-400'
+                        }`}
+                      />
+                    )}
+                  </button>
+                )}
               </div>
 
               {/* Trust Badge */}

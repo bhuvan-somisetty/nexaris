@@ -1,10 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '../../lib/api';
-import { Header } from '../../components/Header';
+import { api } from '@/lib/api';
+import { Header } from '@/components/Header';
 import Link from 'next/link';
-import { Search, SlidersHorizontal, ChevronRight, ArrowUpDown, ChevronLeft, Loader2, PackageX, Sparkles } from 'lucide-react';
+import { Search, SlidersHorizontal, ChevronRight, ArrowUpDown, ChevronLeft, Loader2, PackageX, Sparkles, Heart } from 'lucide-react';
+import { useWishlist } from '@/context/WishlistContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface Category {
   id: string;
@@ -28,6 +30,27 @@ interface Product {
 }
 
 export default function DiscoveryPage() {
+  const { user } = useAuth();
+  const { wishlist, addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const [wishlistTogglingId, setWishlistTogglingId] = useState<string | null>(null);
+
+  const handleWishlistToggle = async (e: React.MouseEvent, productId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      alert('Please sign in to save items to your wishlist.');
+      return;
+    }
+    const wishlistItem = wishlist?.items.find(item => item.productId === productId);
+    setWishlistTogglingId(productId);
+    if (wishlistItem) {
+      await removeFromWishlist(wishlistItem.id);
+    } else {
+      await addToWishlist(productId, null);
+    }
+    setTimeout(() => setWishlistTogglingId(null), 300);
+  };
+
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -325,6 +348,24 @@ export default function DiscoveryPage() {
                             <span className="absolute top-3 right-3 rounded-lg bg-red-500/10 border border-red-500/30 px-2 py-0.5 text-[10px] font-bold text-red-400 uppercase tracking-wider">
                               Out of Stock
                             </span>
+                          )}
+
+                          {/* Wishlist Heart Toggle */}
+                          {user && user.role === 'CUSTOMER' && (
+                            <button
+                              onClick={(e) => handleWishlistToggle(e, p.id)}
+                              disabled={wishlistTogglingId === p.id}
+                              className="absolute top-3 left-3 p-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-slate-450 hover:text-red-400 hover:bg-slate-950 transition-colors z-20 focus:outline-none"
+                              title="Toggle Wishlist"
+                            >
+                              <Heart
+                                className={`h-4 w-4 ${
+                                  isInWishlist(p.id, null)
+                                    ? 'text-red-500 fill-red-500'
+                                    : 'text-slate-400 hover:text-red-400'
+                                }`}
+                              />
+                            </button>
                           )}
                         </div>
 
