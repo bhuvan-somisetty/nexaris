@@ -1,4 +1,4 @@
-import { PrismaClient, Role, SellerStatus, ProductStatus, AddressType, NotificationType } from '@prisma/client';
+import { PrismaClient, Role, SellerStatus, ProductStatus, AddressType, NotificationType, NotificationChannel } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -15,6 +15,9 @@ async function main() {
   await prisma.category.deleteMany({});
   await prisma.refreshToken.deleteMany({});
   await prisma.auditLog.deleteMany({});
+  await prisma.notificationDeliveryLog.deleteMany({});
+  await prisma.notificationPreference.deleteMany({});
+  await prisma.notificationTemplate.deleteMany({});
   await prisma.notification.deleteMany({});
   await prisma.address.deleteMany({});
   await prisma.sellerProfile.deleteMany({});
@@ -330,6 +333,184 @@ async function main() {
     },
   });
   console.log(`Created variant product: ${product4.name}`);
+
+  // Seeding default notification templates
+  const templatesData = [
+    // ORDER_CREATED
+    {
+      type: NotificationType.ORDER_CREATED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Order Placed',
+      bodyTemplate: 'Your order {{orderId}} has been created and is awaiting payment.',
+    },
+    {
+      type: NotificationType.ORDER_CREATED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Order {{orderId}} Placed',
+      bodyTemplate: 'Hello {{name}}, your order {{orderId}} has been successfully placed. Amount: ₹{{amount}}. Please complete your payment within 15 minutes.',
+    },
+    // ORDER_CONFIRMED
+    {
+      type: NotificationType.ORDER_CONFIRMED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Order Confirmed',
+      bodyTemplate: 'Your order {{orderId}} has been confirmed and is processing.',
+    },
+    {
+      type: NotificationType.ORDER_CONFIRMED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Order {{orderId}} Confirmed',
+      bodyTemplate: 'Hello {{name}}, your payment for order {{orderId}} was successful. Your order is now confirmed and is being processed by our sellers.',
+    },
+    // ORDER_SHIPPED
+    {
+      type: NotificationType.ORDER_SHIPPED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Order Shipped',
+      bodyTemplate: 'Your order {{orderId}} has been shipped!',
+    },
+    {
+      type: NotificationType.ORDER_SHIPPED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Order {{orderId}} Dispatched',
+      bodyTemplate: 'Hello {{name}}, items in your order {{orderId}} have been shipped and are on the way.',
+    },
+    // ORDER_DELIVERED
+    {
+      type: NotificationType.ORDER_DELIVERED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Order Delivered',
+      bodyTemplate: 'Your order {{orderId}} has been delivered.',
+    },
+    {
+      type: NotificationType.ORDER_DELIVERED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Order {{orderId}} Delivered',
+      bodyTemplate: 'Hello {{name}}, your order {{orderId}} has been delivered successfully. Thank you for shopping with Nexaris!',
+    },
+    // ORDER_CANCELLED
+    {
+      type: NotificationType.ORDER_CANCELLED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Order Cancelled',
+      bodyTemplate: 'Your order {{orderId}} has been cancelled.',
+    },
+    {
+      type: NotificationType.ORDER_CANCELLED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Order {{orderId}} Cancelled',
+      bodyTemplate: 'Hello {{name}}, your order {{orderId}} has been cancelled.',
+    },
+    // PAYMENT_SUCCESS
+    {
+      type: NotificationType.PAYMENT_SUCCESS,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Payment Successful',
+      bodyTemplate: 'Payment of ₹{{amount}} for order {{orderId}} succeeded.',
+    },
+    {
+      type: NotificationType.PAYMENT_SUCCESS,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Payment Success Receipt',
+      bodyTemplate: 'Hello {{name}}, we have received your payment of ₹{{amount}} for order {{orderId}}. Thank you!',
+    },
+    // PAYMENT_FAILED
+    {
+      type: NotificationType.PAYMENT_FAILED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Payment Failed',
+      bodyTemplate: 'Payment for order {{orderId}} failed.',
+    },
+    {
+      type: NotificationType.PAYMENT_FAILED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Payment Failed Alert',
+      bodyTemplate: 'Hello {{name}}, the payment attempt for order {{orderId}} failed. Please retry your payment from the dashboard.',
+    },
+    // REFUND_CREATED
+    {
+      type: NotificationType.REFUND_CREATED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Refund Processed',
+      bodyTemplate: 'Refund of ₹{{amount}} for order {{orderId}} has been created.',
+    },
+    {
+      type: NotificationType.REFUND_CREATED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris - Refund Issued',
+      bodyTemplate: 'Hello {{name}}, a refund of ₹{{amount}} has been issued for order {{orderId}}. Reason: {{reason}}.',
+    },
+    // REVIEW_RECEIVED
+    {
+      type: NotificationType.REVIEW_RECEIVED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'New Review Received',
+      bodyTemplate: 'Your product {{productName}} received a {{rating}}★ review.',
+    },
+    {
+      type: NotificationType.REVIEW_RECEIVED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris Seller - New Review Alert',
+      bodyTemplate: 'Hello {{sellerName}}, a customer left a {{rating}}★ review on your product "{{productName}}". Title: "{{title}}".',
+    },
+    // REVIEW_REPORTED
+    {
+      type: NotificationType.REVIEW_REPORTED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Review Reported',
+      bodyTemplate: 'Review ID {{reviewId}} was flagged for moderation.',
+    },
+    {
+      type: NotificationType.REVIEW_REPORTED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris Admin - Review Flagged',
+      bodyTemplate: 'Admin alert: Review ID {{reviewId}} on product "{{productName}}" was reported. Reason: "{{reason}}".',
+    },
+    // PRODUCT_APPROVED
+    {
+      type: NotificationType.PRODUCT_APPROVED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Product Approved',
+      bodyTemplate: 'Your product {{productName}} has been approved.',
+    },
+    {
+      type: NotificationType.PRODUCT_APPROVED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris Seller - Product Approved',
+      bodyTemplate: 'Hello {{sellerName}}, your product "{{productName}}" has been approved and is now live in the marketplace.',
+    },
+    // PRODUCT_REJECTED
+    {
+      type: NotificationType.PRODUCT_REJECTED,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'Product Rejected',
+      bodyTemplate: 'Your product {{productName}} was rejected.',
+    },
+    {
+      type: NotificationType.PRODUCT_REJECTED,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris Seller - Product Rejected',
+      bodyTemplate: 'Hello {{sellerName}}, your product "{{productName}}" was rejected. Reason: {{reason}}.',
+    },
+    // SYSTEM_ALERT
+    {
+      type: NotificationType.SYSTEM_ALERT,
+      channel: NotificationChannel.IN_APP,
+      titleTemplate: 'System Alert',
+      bodyTemplate: 'Platform Update: {{message}}',
+    },
+    {
+      type: NotificationType.SYSTEM_ALERT,
+      channel: NotificationChannel.EMAIL,
+      titleTemplate: 'Nexaris Platform Alert',
+      bodyTemplate: 'Important updates: {{message}}',
+    },
+  ];
+
+  await prisma.notificationTemplate.createMany({
+    data: templatesData,
+  });
+  console.log(`Seeded ${templatesData.length} default notification templates.`);
 
   console.log('Database seeding finished successfully!');
 }

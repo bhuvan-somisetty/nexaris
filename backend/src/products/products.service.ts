@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, ProductStatus, SellerStatus } from '@prisma/client';
+import { Role, ProductStatus, SellerStatus, NotificationType } from '@prisma/client';
 import { Prisma } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(query: {
     search?: string;
@@ -339,7 +343,7 @@ export class ProductsService {
       updateData.categoryId = data.categoryId;
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.product.update({
         where: { id },
         data: updateData,
@@ -399,6 +403,28 @@ export class ProductsService {
 
       return updated;
     });
+
+    if (result.status !== product.status) {
+      if (result.status === ProductStatus.PUBLISHED) {
+        this.eventEmitter.emit('notification.send', {
+          userId: product.sellerId,
+          type: NotificationType.PRODUCT_APPROVED,
+          metadata: {
+            productName: result.name,
+          },
+        });
+      } else if (result.status === ProductStatus.REJECTED) {
+        this.eventEmitter.emit('notification.send', {
+          userId: product.sellerId,
+          type: NotificationType.PRODUCT_REJECTED,
+          metadata: {
+            productName: result.name,
+          },
+        });
+      }
+    }
+
+    return result;
   }
 
   async delete(id: string, userId: string, userRole: Role) {

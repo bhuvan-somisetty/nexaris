@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './reviews.dto';
-import { ReviewStatus, ModerationStatus, ReportStatus } from '@prisma/client';
+import { ReviewStatus, ModerationStatus, ReportStatus, NotificationType, Role } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async checkEligibility(productId: string, customerId: string) {
     // 1. Check if user already reviewed
@@ -56,7 +60,15 @@ export class ReviewsService {
       }
     }
 
-    return this.prisma.review.create({
+    const product = await this.prisma.product.findUnique({
+      where: { id: dto.productId },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const review = await this.prisma.review.create({
       data: {
         productId: dto.productId,
         customerId,
@@ -77,6 +89,20 @@ export class ReviewsService {
         },
       },
     });
+
+    // Emit notification to the seller
+    this.eventEmitter.emit('notification.send', {
+      userId: product.sellerId,
+      type: NotificationType.REVIEW_RECEIVED,
+      metadata: {
+        productName: product.name,
+        rating: dto.rating.toString(),
+        title: dto.title,
+        reviewId: review.id,
+      },
+    });
+
+    return review;
   }
 
   async getReviewsByProduct(
@@ -304,6 +330,30 @@ export class ReviewsService {
         moderationStatus: ModerationStatus.FLAGGED,
       },
     });
+
+    try {
+      const product = await this.prisma.product.findUnique({
+        where: { id: review.productId },
+      });
+
+      const admin = await this.prisma.user.findFirst({
+        where: { role: Role.ADMIN },
+      });
+
+      if (admin) {
+        this.eventEmitter.emit('notification.send', {
+          userId: admin.id,
+          type: NotificationType.REVIEW_REPORTED,
+          metadata: {
+            reviewId,
+            productName: product?.name || 'Unknown Product',
+            reason: dto.reason,
+          },
+        });
+      }
+    } catch (err) {
+      // Don't fail the reporting process if notification fails
+    }
 
     return report;
   }

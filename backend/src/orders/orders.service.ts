@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, OrderStatus, FulfillmentStatus, PaymentStatus } from '@prisma/client';
+import { Role, OrderStatus, FulfillmentStatus, PaymentStatus, NotificationType } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async findAll(
     userId: string,
@@ -190,7 +194,16 @@ export class OrdersService {
       }
     });
 
-    return this.findOne(item.orderId, userId, role);
+    const updatedOrder = await this.findOne(item.orderId, userId, role);
+    if (updatedOrder && updatedOrder.status !== item.order.status) {
+      this.emitOrderNotification(
+        updatedOrder.customerId,
+        updatedOrder.id,
+        updatedOrder.status,
+        updatedOrder.total.toString(),
+      );
+    }
+    return updatedOrder;
   }
 
   async cancelOrder(userId: string, role: Role, orderId: string, notes?: string) {
@@ -311,7 +324,16 @@ export class OrdersService {
       });
     });
 
-    return this.findOne(orderId, userId, role);
+    const updatedOrder = await this.findOne(orderId, userId, role);
+    if (updatedOrder) {
+      this.emitOrderNotification(
+        updatedOrder.customerId,
+        updatedOrder.id,
+        OrderStatus.CANCELLED,
+        updatedOrder.total.toString(),
+      );
+    }
+    return updatedOrder;
   }
 
   async adminOverrideStatus(userId: string, orderId: string, status: OrderStatus, notes?: string) {
@@ -366,6 +388,46 @@ export class OrdersService {
       });
     });
 
-    return this.findOne(orderId, userId, Role.ADMIN);
+    const updatedOrder = await this.findOne(orderId, userId, Role.ADMIN);
+    if (updatedOrder && updatedOrder.status !== order.status) {
+      this.emitOrderNotification(
+        updatedOrder.customerId,
+        updatedOrder.id,
+        updatedOrder.status,
+        updatedOrder.total.toString(),
+      );
+    }
+    return updatedOrder;
+  }
+
+  private emitOrderNotification(userId: string, orderId: string, status: OrderStatus, amount?: string) {
+    let type: NotificationType | null = null;
+    switch (status) {
+      case OrderStatus.CONFIRMED:
+        type = NotificationType.ORDER_CONFIRMED;
+        break;
+      case OrderStatus.SHIPPED:
+        type = NotificationType.ORDER_SHIPPED;
+        break;
+      case OrderStatus.DELIVERED:
+        type = NotificationType.ORDER_DELIVERED;
+        break;
+      case OrderStatus.CANCELLED:
+        type = NotificationType.ORDER_CANCELLED;
+        break;
+      default:
+        break;
+    }
+
+    if (type) {
+      this.eventEmitter.emit('notification.send', {
+        userId,
+        type,
+        metadata: {
+          orderId,
+          amount: amount || '',
+        },
+      });
+    }
   }
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { Menu, X, LogOut, User as UserIcon, Shield, Store, ShoppingCart, Heart } from 'lucide-react';
+import { Menu, X, LogOut, User as UserIcon, Shield, Store, ShoppingCart, Heart, Bell } from 'lucide-react';
+import { api } from '../lib/api';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -13,6 +14,9 @@ export const Header: React.FC = () => {
   const { wishlist } = useWishlist();
   const [isOpen, setIsOpen] = useState(false);
   const [showMiniCart, setShowMiniCart] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const cartItemCount = cart?.items.reduce((acc, item) => acc + item.quantity, 0) || 0;
   const wishlistCount = wishlist?.items.length || 0;
@@ -23,6 +27,43 @@ export const Header: React.FC = () => {
       : parseFloat(item.product.price);
     return acc + price * item.quantity;
   }, 0) || 0;
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.get('/notifications?page=1&limit=5&archived=false');
+      setNotifications(response.data.items);
+      setUnreadCount(response.data.unreadCount);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await api.post('/notifications/read-all');
+      setUnreadCount(0);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
+  const handleMarkRead = async (id: string) => {
+    try {
+      await api.patch(`/notifications/${id}/read`);
+      fetchNotifications();
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md">
@@ -80,7 +121,7 @@ export const Header: React.FC = () => {
 
                     <div className="relative">
                       <button
-                        onClick={() => setShowMiniCart(!showMiniCart)}
+                        onClick={() => { setShowMiniCart(!showMiniCart); setShowNotifications(false); }}
                         className="relative p-1.5 text-slate-400 hover:text-white transition-colors focus:outline-none"
                         title="Shopping Cart"
                       >
@@ -184,6 +225,80 @@ export const Header: React.FC = () => {
                     </Link>
                   </>
                 )}
+
+                {/* Notifications Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setShowNotifications(!showNotifications);
+                      setShowMiniCart(false);
+                      if (!showNotifications) fetchNotifications();
+                    }}
+                    className="relative p-1.5 text-slate-400 hover:text-white transition-colors focus:outline-none"
+                    title="Notifications"
+                  >
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <span className="absolute top-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white animate-pulse">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {showNotifications && (
+                    <div className="absolute right-0 mt-3 w-80 rounded-2xl border border-slate-900 bg-slate-950 p-4 shadow-2xl ring-1 ring-black ring-opacity-5 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-900">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest font-mono">
+                          Notifications
+                        </h4>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={handleMarkAllRead}
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold transition-colors"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto py-2 divide-y divide-slate-900/60 scrollbar-thin">
+                        {notifications.length > 0 ? (
+                          notifications.map((n) => (
+                            <div
+                              key={n.id}
+                              onClick={() => handleMarkRead(n.id)}
+                              className={`flex py-2.5 gap-2 items-start cursor-pointer hover:bg-slate-900/40 px-2 rounded-lg transition-colors ${
+                                !n.isRead ? 'bg-slate-900/20' : ''
+                              }`}
+                            >
+                              <div className={`h-1.5 w-1.5 mt-2 rounded-full shrink-0 ${!n.isRead ? 'bg-indigo-500' : 'bg-transparent'}`} />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-slate-200 truncate">{n.title}</p>
+                                <p className="text-[11px] text-slate-400 line-clamp-2 mt-0.5">{n.message}</p>
+                                <span className="text-[9px] text-slate-600 mt-1 block font-mono">
+                                  {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="py-8 text-center text-xs text-slate-500">
+                            No notifications.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-900 flex justify-between text-[11px] font-semibold text-indigo-400">
+                        <Link href="/notifications" onClick={() => setShowNotifications(false)} className="hover:text-indigo-300 transition-colors">
+                          View all history
+                        </Link>
+                        <Link href="/profile/settings/notifications" onClick={() => setShowNotifications(false)} className="hover:text-indigo-300 transition-colors">
+                          Settings
+                        </Link>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="h-4 w-px bg-slate-800" />
                 

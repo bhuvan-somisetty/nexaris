@@ -25,10 +25,38 @@ enum AddressType {
 }
 
 enum NotificationType {
+  ORDER_CREATED
+  ORDER_CONFIRMED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  REFUND_CREATED
+  REVIEW_RECEIVED
+  REVIEW_REPORTED
+  PRODUCT_APPROVED
+  PRODUCT_REJECTED
+  SYSTEM_ALERT
   ORDER_UPDATE
   PROMOTION
   AUTH
   SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
 }
 
 model User {
@@ -53,6 +81,7 @@ model User {
   reviewReports       ReviewReport[]
   sellerRatingsGiven  SellerRating[] @relation("SellerRatingsGiven")
   sellerRatingsRecv   SellerRating[] @relation("SellerRatingsReceived")
+  notificationPrefs   NotificationPreference[]
 }
 
 model Profile {
@@ -98,16 +127,18 @@ model Address {
 }
 
 model Notification {
-  id        String           @id @default(uuid())
-  userId    String
-  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String
-  type      NotificationType @default(SYSTEM)
-  isRead    Boolean          @default(false)
-  metadata  Json?            // For custom fields like orderId or productId
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id           String                   @id @default(uuid())
+  userId       String
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         NotificationType
+  title        String
+  message      String
+  isRead       Boolean                  @default(false)
+  archived     Boolean                  @default(false)
+  metadata     Json?
+  deliveryLogs NotificationDeliveryLog[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
 }
 
 model AuditLog {
@@ -506,4 +537,44 @@ model SellerRating {
   updatedAt  DateTime @updatedAt
 
   @@unique([sellerId, customerId])
+}
+
+// ─── Notification Infrastructure ──────────────────────────────────────────────
+
+model NotificationPreference {
+  id        String              @id @default(uuid())
+  userId    String
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  channel   NotificationChannel
+  enabled   Boolean             @default(true)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@unique([userId, type, channel])
+}
+
+model NotificationTemplate {
+  id            String              @id @default(uuid())
+  type          NotificationType
+  channel       NotificationChannel
+  titleTemplate String
+  bodyTemplate  String
+  enabled       Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@unique([type, channel])
+}
+
+model NotificationDeliveryLog {
+  id             String              @id @default(uuid())
+  notificationId String
+  notification   Notification        @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  channel        NotificationChannel
+  status         NotificationStatus  @default(PENDING)
+  providerRef    String?
+  error          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
 }

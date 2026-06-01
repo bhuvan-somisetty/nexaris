@@ -1,13 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus, PaymentStatus, PaymentProvider } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentProvider, NotificationType } from '@prisma/client';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
 
 const PAYMENT_EXPIRY_MINUTES = 15;
 
 @Injectable()
 export class CheckoutService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventEmitter: EventEmitter2,
+  ) {}
 
   async processCheckout(userId: string, data: { addressId?: string; newAddress?: any }) {
     // 1. Fetch Cart
@@ -102,7 +106,7 @@ export class CheckoutService {
     const total = subtotal + tax + shipping;
 
     // 5. Execute Transaction
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // ── Re-validate + RESERVE inventory (not deduct) ──────────────────────
       for (const item of cart.items) {
         if (item.variantId) {
@@ -222,5 +226,16 @@ export class CheckoutService {
 
       return { order, payment };
     });
+
+    this.eventEmitter.emit('notification.send', {
+      userId,
+      type: NotificationType.ORDER_CREATED,
+      metadata: {
+        orderId: result.order.id,
+        amount: result.order.total.toString(),
+      },
+    });
+
+    return result;
   }
 }

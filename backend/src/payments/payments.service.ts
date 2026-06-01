@@ -12,8 +12,10 @@ import {
   PaymentMethod,
   OrderStatus,
   Role,
+  NotificationType,
 } from '@prisma/client';
 import { PaymentProviderFactory } from './providers/payment-provider.factory';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
 
 const PAYMENT_EXPIRY_MINUTES = 15;
@@ -24,6 +26,7 @@ export class PaymentsService {
   constructor(
     private prisma: PrismaService,
     private providerFactory: PaymentProviderFactory,
+    private eventEmitter: EventEmitter2,
   ) {}
 
   // ─── Initiate Payment ──────────────────────────────────────────────────────
@@ -224,6 +227,15 @@ export class PaymentsService {
           },
         });
       });
+
+      this.eventEmitter.emit('notification.send', {
+        userId,
+        type: NotificationType.PAYMENT_SUCCESS,
+        metadata: {
+          orderId: payment.orderId,
+          amount: payment.amount.toString(),
+        },
+      });
     } else {
       // ── FAILURE PATH ──────────────────────────────────────────────────────
       await this.prisma.$transaction(async (tx) => {
@@ -265,6 +277,15 @@ export class PaymentsService {
             newValue: { failureReason: result.failureReason, attemptNumber },
           },
         });
+      });
+
+      this.eventEmitter.emit('notification.send', {
+        userId,
+        type: NotificationType.PAYMENT_FAILED,
+        metadata: {
+          orderId: payment.orderId,
+          amount: payment.amount.toString(),
+        },
       });
     }
 
@@ -401,6 +422,18 @@ export class PaymentsService {
         });
       }
     });
+
+    if (result.success) {
+      this.eventEmitter.emit('notification.send', {
+        userId: payment.order.customerId,
+        type: NotificationType.REFUND_CREATED,
+        metadata: {
+          orderId: payment.orderId,
+          amount: refundAmount.toString(),
+          reason: reason || 'Not specified',
+        },
+      });
+    }
 
     return this.prisma.payment.findUnique({
       where: { id: paymentId },
