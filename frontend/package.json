@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.55.0",
     "axios": "^1.16.1",
     "lucide-react": "^1.17.0",
     "next": "15.5.18",

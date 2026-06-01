@@ -5,6 +5,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { Header } from '../../../../components/Header';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../../lib/api';
+import { uploadImageToCloudinary } from '../../../../lib/upload';
 import { ChevronLeft, Info, HelpCircle, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,6 +32,23 @@ export default function NewProduct() {
   const [sku, setSku] = useState('');
   const [quantity, setQuantity] = useState('10');
   const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    setError(null);
+    try {
+      const url = await uploadImageToCloudinary(file, 'nexaris/products');
+      setImageUrl(url);
+    } catch (err: any) {
+      console.error(err);
+      setError('Image upload failed. Verify API configuration and image format.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   // Attributes State
   const [attributes, setAttributes] = useState<Array<{ name: string; value: string }>>([]);
@@ -276,16 +294,39 @@ export default function NewProduct() {
               <h3 className="text-sm font-bold text-slate-200 uppercase tracking-widest font-mono border-b border-slate-900 pb-2">
                 Product Image
               </h3>
-              <div>
-                <label className="block text-sm font-medium text-slate-300">Main Image URL</label>
-                <input
-                  type="url"
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="mt-1.5 block w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
-                  placeholder="https://images.unsplash.com/photo-..."
-                />
-                <p className="text-[10px] text-slate-500 mt-1">Specify an absolute web link containing image assets.</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300">Upload Product Image</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={uploadingImage}
+                    className="mt-1.5 block w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-900 file:text-indigo-400 hover:file:bg-slate-800 cursor-pointer"
+                  />
+                  {uploadingImage && (
+                    <div className="flex items-center space-x-2 text-xs text-indigo-400 mt-2">
+                      <Loader2 className="animate-spin h-3.5 w-3.5" />
+                      <span>Uploading directly to Cloudinary...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-300">Or Main Image URL</label>
+                  <input
+                    type="url"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="mt-1.5 block w-full px-3.5 py-2 bg-slate-900 border border-slate-800 rounded-xl text-slate-200 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                    placeholder="https://images.unsplash.com/photo-..."
+                  />
+                  {imageUrl && (
+                    <div className="mt-3 relative w-32 h-32 rounded-xl overflow-hidden border border-slate-800 bg-slate-900">
+                      <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 

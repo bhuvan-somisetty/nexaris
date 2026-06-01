@@ -3,8 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { uploadImageToCloudinary } from '@/lib/upload';
 import { Header } from '@/components/Header';
-import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock, Heart, Minus, Plus, Star, Flag, Trash2, Edit, MessageSquare, Award } from 'lucide-react';
+import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock, Heart, Minus, Plus, Star, Flag, Trash2, Edit, MessageSquare, Award, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
@@ -87,6 +88,32 @@ export default function ProductDetailPage() {
   const [reviewContent, setReviewContent] = useState<string>('');
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [submittingReview, setSubmittingReview] = useState<boolean>(false);
+  const [reviewImages, setReviewImages] = useState<string[]>([]);
+  const [uploadingReviewImage, setUploadingReviewImage] = useState<boolean>(false);
+
+  const handleReviewImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingReviewImage(true);
+    setErrorMessage(null);
+    try {
+      const urls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadImageToCloudinary(files[i], 'nexaris/reviews');
+        urls.push(url);
+      }
+      setReviewImages((prev) => [...prev, ...urls]);
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage('Failed to upload one or more review images.');
+    } finally {
+      setUploadingReviewImage(false);
+    }
+  };
+
+  const handleRemoveReviewImage = (index: number) => {
+    setReviewImages((prev) => prev.filter((_, i) => i !== index));
+  };
   
   // Voting & Reporting state
   const [votingId, setVotingId] = useState<string | null>(null);
@@ -231,6 +258,7 @@ export default function ProductDetailPage() {
           rating: reviewRating,
           title: reviewTitle,
           content: reviewContent,
+          images: reviewImages,
         });
         setSuccessMessage('Review updated successfully!');
       } else {
@@ -239,6 +267,7 @@ export default function ProductDetailPage() {
           rating: reviewRating,
           title: reviewTitle,
           content: reviewContent,
+          images: reviewImages,
         });
         setSuccessMessage('Review posted successfully!');
       }
@@ -247,6 +276,7 @@ export default function ProductDetailPage() {
       setReviewTitle('');
       setReviewContent('');
       setReviewRating(5);
+      setReviewImages([]);
       setEditingReviewId(null);
 
       // Refresh data
@@ -265,6 +295,7 @@ export default function ProductDetailPage() {
     setReviewRating(review.rating);
     setReviewTitle(review.title);
     setReviewContent(review.content);
+    setReviewImages(review.images || []);
     
     // Scroll to the review form
     const formElement = document.getElementById('review-form-anchor');
@@ -917,6 +948,44 @@ export default function ProductDetailPage() {
                       />
                     </div>
 
+                    {/* Photos */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-slate-500 block font-mono uppercase">Add Photos</label>
+                      <div className="flex flex-wrap gap-2">
+                        {reviewImages.map((img, idx) => (
+                          <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 group">
+                            <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveReviewImage(idx)}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-slate-400 hover:text-white transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        <label className="flex flex-col items-center justify-center w-20 h-20 rounded-lg border border-dashed border-slate-800 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 cursor-pointer transition-colors">
+                          {uploadingReviewImage ? (
+                            <Loader2 className="animate-spin h-5 w-5 text-indigo-400" />
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5 text-slate-500" />
+                              <span className="text-[10px] text-slate-500 mt-1 font-mono uppercase">Upload</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleReviewImageUpload}
+                            className="hidden"
+                            disabled={uploadingReviewImage}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={submittingReview}
@@ -980,6 +1049,44 @@ export default function ProductDetailPage() {
                         placeholder="Describe your experience with this item..."
                         className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-y"
                       />
+                    </div>
+
+                    {/* Photos */}
+                    <div className="space-y-2">
+                      <label className="text-xs text-slate-500 block font-mono uppercase">Add Photos</label>
+                      <div className="flex flex-wrap gap-2">
+                        {reviewImages.map((img, idx) => (
+                          <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-800 bg-slate-900 group">
+                            <img src={img} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveReviewImage(idx)}
+                              className="absolute top-1 right-1 p-1 rounded-full bg-black/60 text-slate-400 hover:text-white transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        
+                        <label className="flex flex-col items-center justify-center w-20 h-20 rounded-lg border border-dashed border-slate-800 bg-slate-900 hover:bg-slate-850 hover:border-slate-700 cursor-pointer transition-colors">
+                          {uploadingReviewImage ? (
+                            <Loader2 className="animate-spin h-5 w-5 text-indigo-400" />
+                          ) : (
+                            <>
+                              <Upload className="h-5 w-5 text-slate-500" />
+                              <span className="text-[10px] text-slate-500 mt-1 font-mono uppercase">Upload</span>
+                            </>
+                          )}
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleReviewImageUpload}
+                            className="hidden"
+                            disabled={uploadingReviewImage}
+                          />
+                        </label>
+                      </div>
                     </div>
 
                     <button
