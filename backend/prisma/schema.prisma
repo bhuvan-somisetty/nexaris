@@ -208,6 +208,7 @@ model Product {
   wishlistItems WishlistItem[]
   orderItems    OrderItem[]
   reviews       Review[]
+  views         ProductView[]
 }
 
 model ProductImage {
@@ -342,6 +343,10 @@ model Order {
   payment           Payment?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
+
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+  @@index([createdAt])
 }
 
 model OrderItem {
@@ -365,6 +370,9 @@ model OrderItem {
   
   // Seller-level fulfillment tracking
   fulfillmentStatus FulfillmentStatus @default(PENDING)
+
+  @@index([sellerId])
+  @@index([sellerId, productId])
 }
 
 model OrderAddress {
@@ -577,4 +585,13 @@ model NotificationDeliveryLog {
   error          String?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
+}
+
+model ProductView {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([productId, createdAt])
 }

@@ -86,7 +86,24 @@ export default function SellerDashboard() {
               {/* Dashboard Navigation Cards */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 font-mono">Store Operations</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Analytics */}
+                  <button
+                    onClick={() => router.push('/seller/analytics')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <BarChart3 className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Business Analytics</h4>
+                        <p className="text-xs text-slate-500">Track health, forecasts, and sales trends.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
+
                   {/* Products */}
                   <button
                     onClick={() => router.push('/seller/products')}

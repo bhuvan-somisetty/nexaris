@@ -512,6 +512,125 @@ async function main() {
   });
   console.log(`Seeded ${templatesData.length} default notification templates.`);
 
+  // --- Seed Analytics Mock Data for past 45 days ---
+  console.log('Seeding analytics mock data (views, orders, ratings)...');
+  const now = new Date();
+  
+  // Create a couple more customers for cohort calculations
+  const customer2 = await prisma.user.create({
+    data: {
+      email: 'customer2@nexaris.com',
+      passwordHash: customerHash,
+      role: Role.CUSTOMER,
+      profile: {
+        create: {
+          firstName: 'Jane',
+          lastName: 'Smith',
+        },
+      },
+    },
+  });
+
+  const customer3 = await prisma.user.create({
+    data: {
+      email: 'customer3@nexaris.com',
+      passwordHash: customerHash,
+      role: Role.CUSTOMER,
+      profile: {
+        create: {
+          firstName: 'Mike',
+          lastName: 'Brown',
+        },
+      },
+    },
+  });
+
+  // Seed Seller Ratings for Business Health Score
+  await prisma.sellerRating.createMany({
+    data: [
+      { sellerId: approvedSeller.id, customerId: customer.id, rating: 5, comment: 'Amazing service!' },
+      { sellerId: approvedSeller.id, customerId: customer2.id, rating: 4, comment: 'Fast delivery.' },
+      { sellerId: approvedSeller.id, customerId: customer3.id, rating: 5, comment: 'High quality items.' },
+    ],
+  });
+
+  const customersList = [customer, customer2, customer3];
+  
+  // Daily loop for 45 days
+  for (let i = 45; i >= 0; i--) {
+    const targetDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    
+    // Seed views (20-40 per day)
+    const viewCount = Math.floor(Math.random() * 20) + 20;
+    const viewsToCreate = [];
+    for (let v = 0; v < viewCount; v++) {
+      const prod = Math.random() > 0.4 ? product1 : product2;
+      viewsToCreate.push({
+        productId: prod.id,
+        createdAt: targetDate,
+      });
+    }
+    await prisma.productView.createMany({ data: viewsToCreate });
+
+    // Seed orders (1-3 per day)
+    const orderCount = Math.floor(Math.random() * 3) + 1;
+    for (let o = 0; o < orderCount; o++) {
+      // Pick random customer
+      const cust = customersList[Math.floor(Math.random() * customersList.length)];
+      
+      // Pick product & variant
+      const isMacbook = Math.random() > 0.5;
+      const price = isMacbook ? 2499.00 : 999.99;
+      const name = isMacbook ? 'Macbook Pro 16"' : 'iPhone 15 Pro';
+      const prodId = isMacbook ? product2.id : product1.id;
+      const slug = isMacbook ? 'macbook-pro-16' : 'iphone-15-pro';
+      const image = isMacbook ? 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600' : 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&q=80&w=600';
+      const sku = isMacbook ? 'MACBOOK-M3PRO-512' : 'IPHONE-15-PRO-128GB';
+
+      const isRefunded = i === 15 || i === 28; // mark a couple orders as refunded
+      const status = isRefunded ? 'REFUNDED' : 'DELIVERED';
+
+      await prisma.order.create({
+        data: {
+          customerId: cust.id,
+          status: status as any,
+          subtotal: price,
+          tax: price * 0.08,
+          shipping: 15.00,
+          total: price * 1.08 + 15.00,
+          createdAt: targetDate,
+          updatedAt: targetDate,
+          items: {
+            create: [
+              {
+                productId: prodId,
+                quantity: 1,
+                price: price,
+                productName: name,
+                productSlug: slug,
+                productImage: image,
+                variantSku: sku,
+                sellerId: approvedSeller.id,
+                fulfillmentStatus: 'DELIVERED',
+              },
+            ],
+          },
+          payment: {
+            create: {
+              status: isRefunded ? 'REFUNDED' : 'SUCCESS',
+              amount: price * 1.08 + 15.00,
+              idempotencyKey: `idempotency-${targetDate.getTime()}-${o}`,
+              expiresAt: new Date(targetDate.getTime() + 15 * 60 * 1000),
+              createdAt: targetDate,
+              updatedAt: targetDate,
+            },
+          },
+        },
+      });
+    }
+  }
+  console.log('Seeded views and orders analytics history.');
+
   console.log('Database seeding finished successfully!');
 }
 
