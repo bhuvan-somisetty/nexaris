@@ -5,7 +5,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
 import { api } from '../../../lib/api';
-import { Shield, Users, UserCheck, Store, Check, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Users, UserCheck, Store, Check, X, AlertCircle, Loader2, MessageSquare } from 'lucide-react';
 
 interface SellerProfile {
   id: string;
@@ -107,12 +107,21 @@ export default function AdminDashboard() {
                 </div>
               </div>
               
-              {sellerProfilesPending > 0 && (
-                <div className="mt-4 sm:mt-0 inline-flex items-center space-x-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 px-4 py-2 text-sm text-yellow-400 font-semibold animate-pulse">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{sellerProfilesPending} Seller Profile(s) Pending Review</span>
-                </div>
-              )}
+              <div className="mt-4 sm:mt-0 flex flex-wrap gap-3 items-center">
+                {sellerProfilesPending > 0 && (
+                  <div className="inline-flex items-center space-x-2 rounded-xl bg-yellow-500/10 border border-yellow-500/30 px-4 py-2 text-sm text-yellow-400 font-semibold animate-pulse">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{sellerProfilesPending} Seller Profile(s) Pending Review</span>
+                  </div>
+                )}
+                <button
+                  onClick={() => router.push('/admin/reviews')}
+                  className="inline-flex h-10 items-center justify-center rounded-xl bg-purple-600 px-5 text-sm font-semibold hover:bg-purple-700 transition-colors space-x-1.5"
+                >
+                  <MessageSquare className="h-4 w-4" />
+                  <span>Moderate Reviews</span>
+                </button>
+              </div>
             </div>
           </div>
 

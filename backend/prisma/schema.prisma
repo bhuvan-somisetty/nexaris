@@ -32,22 +32,27 @@ enum NotificationType {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  email         String         @unique
-  passwordHash  String
-  role          Role           @default(CUSTOMER)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  profile       Profile?
-  sellerProfile SellerProfile?
-  refreshTokens RefreshToken[]
-  addresses     Address[]
-  notifications Notification[]
-  auditLogs     AuditLog[]
-  products      Product[]
-  cart          Cart?
-  wishlist      Wishlist?
-  orders        Order[]
+  id                  String         @id @default(uuid())
+  email               String         @unique
+  passwordHash        String
+  role                Role           @default(CUSTOMER)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  profile             Profile?
+  sellerProfile       SellerProfile?
+  refreshTokens       RefreshToken[]
+  addresses           Address[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  products            Product[]
+  cart                Cart?
+  wishlist            Wishlist?
+  orders              Order[]
+  reviews             Review[]
+  reviewVotes         ReviewVote[]
+  reviewReports       ReviewReport[]
+  sellerRatingsGiven  SellerRating[] @relation("SellerRatingsGiven")
+  sellerRatingsRecv   SellerRating[] @relation("SellerRatingsReceived")
 }
 
 model Profile {
@@ -171,6 +176,7 @@ model Product {
   cartItems     CartItem[]
   wishlistItems WishlistItem[]
   orderItems    OrderItem[]
+  reviews       Review[]
 }
 
 model ProductImage {
@@ -422,4 +428,82 @@ model Refund {
   initiatedById    String        // Admin or system user ID who triggered refund
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
+}
+
+// ─── Reviews & Ratings System ────────────────────────────────────────────────
+
+enum ReviewStatus {
+  PUBLISHED
+  HIDDEN
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  DISMISSED
+}
+
+model Review {
+  id               String           @id @default(uuid())
+  productId        String
+  product          Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  customerId       String
+  customer         User             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  rating           Int
+  title            String
+  content          String
+  images           String[]
+  verified         Boolean          @default(false)
+  status           ReviewStatus     @default(PUBLISHED)
+  moderationStatus ModerationStatus @default(APPROVED)
+  votes            ReviewVote[]
+  reports          ReviewReport[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@unique([productId, customerId])
+}
+
+model ReviewVote {
+  id         String   @id @default(uuid())
+  reviewId   String
+  review     Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([reviewId, customerId])
+}
+
+model ReviewReport {
+  id         String       @id @default(uuid())
+  reviewId   String
+  review     Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  reason     String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model SellerRating {
+  id         String   @id @default(uuid())
+  sellerId   String
+  seller     User     @relation("SellerRatingsReceived", fields: [sellerId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User     @relation("SellerRatingsGiven", fields: [customerId], references: [id], onDelete: Cascade)
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sellerId, customerId])
 }

@@ -11,6 +11,8 @@ import { CartModule } from './cart/cart.module';
 import { WishlistModule } from './wishlist/wishlist.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentsModule } from './payments/payments.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { SellerRatingsModule } from './seller-ratings/seller-ratings.module';
 
 @Module({
   imports: [
@@ -24,6 +26,8 @@ import { PaymentsModule } from './payments/payments.module';
     WishlistModule,
     OrdersModule,
     PaymentsModule,
+    ReviewsModule,
+    SellerRatingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

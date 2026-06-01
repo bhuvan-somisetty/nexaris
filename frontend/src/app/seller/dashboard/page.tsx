@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
-import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2 } from 'lucide-react';
+import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user, loading } = useAuth();
@@ -83,43 +83,78 @@ export default function SellerDashboard() {
                 </div>
               </div>
 
-              {/* Mock Analytics & Operations Notice */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="rounded-2xl border border-slate-900 bg-slate-950 p-6 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-slate-400">Total Products</span>
-                    <Package className="h-5 w-5 text-indigo-400" />
-                  </div>
-                  <h2 className="text-3xl font-extrabold text-slate-200">0</h2>
-                  <p className="text-xs text-slate-500 mt-2">Will unlock in Phase 2 (Catalog CRUD)</p>
-                </div>
+              {/* Dashboard Navigation Cards */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 font-mono">Store Operations</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Products */}
+                  <button
+                    onClick={() => router.push('/seller/products')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <Package className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Product Management</h4>
+                        <p className="text-xs text-slate-500">List, edit, and moderate catalog items.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
 
-                <div className="rounded-2xl border border-slate-900 bg-slate-950 p-6 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-slate-400">Active Orders</span>
-                    <ShoppingBag className="h-5 w-5 text-indigo-400" />
-                  </div>
-                  <h2 className="text-3xl font-extrabold text-slate-200">0</h2>
-                  <p className="text-xs text-slate-500 mt-2">Will unlock in Phase 3 (Customer Orders)</p>
-                </div>
+                  {/* Inventory */}
+                  <button
+                    onClick={() => router.push('/seller/inventory')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <Clock className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Inventory Logs</h4>
+                        <p className="text-xs text-slate-500">Track and adjust stock levels.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
 
-                <div className="rounded-2xl border border-slate-900 bg-slate-950 p-6 flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-sm font-semibold text-slate-400">Revenue Analytics</span>
-                    <BarChart3 className="h-5 w-5 text-indigo-400" />
-                  </div>
-                  <h2 className="text-3xl font-extrabold text-slate-200">$0.00</h2>
-                  <p className="text-xs text-slate-500 mt-2">Will unlock in Phase 4 (Seller Dashboard)</p>
-                </div>
-              </div>
+                  {/* Orders */}
+                  <button
+                    onClick={() => router.push('/seller/orders')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <ShoppingBag className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Fulfillment & Orders</h4>
+                        <p className="text-xs text-slate-500">View and dispatch sold items.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
 
-              {/* Status Update */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/10 p-6 text-center">
-                <CheckCircle className="h-8 w-8 text-emerald-400 mx-auto mb-2" />
-                <h3 className="font-bold text-slate-200">Store Front Verified</h3>
-                <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
-                  Your store has passed administrator checks. Product management capabilities will be established in the next development cycle.
-                </p>
+                  {/* Reviews */}
+                  <button
+                    onClick={() => router.push('/seller/reviews')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <MessageSquare className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Customer Reviews</h4>
+                        <p className="text-xs text-slate-500">Monitor store feedback & ratings.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
