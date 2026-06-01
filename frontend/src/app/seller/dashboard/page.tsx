@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
-import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight, Gift } from 'lucide-react';
+import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight, Gift, Lightbulb } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user, loading } = useAuth();
@@ -187,6 +187,23 @@ export default function SellerDashboard() {
                       </div>
                     </div>
                     <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
+
+                  {/* AI Market Insights */}
+                  <button
+                    onClick={() => router.push('/seller/insights')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-purple-500/20 bg-purple-500/5 hover:border-purple-500/40 hover:bg-purple-500/10 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+                        <Lightbulb className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">AI Market Insights</h4>
+                        <p className="text-xs text-slate-500">Market gaps, rising demand & opportunities.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-purple-500" />
                   </button>
                 </div>
               </div>

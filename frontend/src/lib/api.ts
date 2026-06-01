@@ -107,10 +107,81 @@ api.interceptors.response.use(
   }
 );
 
-export const trackUserActivity = async (activityType: string, productId?: string, metadata?: any) => {
+export const trackUserActivity = async (activityType: string, productId?: string, metadata?: Record<string, unknown>) => {
   try {
     await api.post('/promotions/track', { activityType, productId, metadata });
   } catch (err) {
     console.error('Failed to log user activity event:', err);
   }
 };
+
+// ─── Recommendations API ───────────────────────────────────────────────────
+
+export interface RecommendedProduct {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  image: string | null;
+  category: { id: string; name: string; slug: string };
+  rating?: number;
+  score: number;
+  reason: string;
+}
+
+export const getHomeRecommendations = async () => {
+  const res = await api.get<{
+    personalized: RecommendedProduct[];
+    trending: RecommendedProduct[];
+    recentlyViewed: RecommendedProduct[];
+  }>('/recommendations/home');
+  return res.data;
+};
+
+export const getSimilarProducts = async (productId: string, limit = 10) => {
+  const res = await api.get<RecommendedProduct[]>(`/recommendations/products/${productId}/similar`, {
+    params: { limit },
+  });
+  return res.data;
+};
+
+export const getFrequentlyBoughtTogether = async (productId: string, limit = 8) => {
+  const res = await api.get<RecommendedProduct[]>(`/recommendations/products/${productId}/frequently-bought`, {
+    params: { limit },
+  });
+  return res.data;
+};
+
+export const getTrendingRecommendations = async (limit = 12) => {
+  const res = await api.get<RecommendedProduct[]>('/recommendations/trending', { params: { limit } });
+  return res.data;
+};
+
+export const getPersonalizedRecommendations = async (limit = 12) => {
+  const res = await api.get<RecommendedProduct[]>('/recommendations/personalized', { params: { limit } });
+  return res.data;
+};
+
+export const getCategoryRecommendations = async (limit = 10) => {
+  const res = await api.get<{ categoryId: string; name: string; slug: string; reason: string; score: number }[]>(
+    '/recommendations/categories',
+    { params: { limit } },
+  );
+  return res.data;
+};
+
+export const getRecentlyViewed = async (limit = 8) => {
+  const res = await api.get<RecommendedProduct[]>('/recommendations/recently-viewed', { params: { limit } });
+  return res.data;
+};
+
+export const logRecommendationEvent = async (
+  recommendationType: string,
+  productId: string,
+  interaction: 'IMPRESSION' | 'CLICK' | 'PURCHASE',
+) => {
+  try {
+    await api.post('/recommendations/event', { recommendationType, productId, interaction });
+  } catch { /* silent */ }
+};
+

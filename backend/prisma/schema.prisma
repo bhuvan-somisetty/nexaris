@@ -92,6 +92,9 @@ model User {
   referralReceived    Referral?              @relation("Referee")
   loyaltyProfile      LoyaltyProfile?
   loyaltyHistory      LoyaltyHistory[]
+  // Phase 11 back-relations
+  preferenceProfile   UserPreferenceProfile?
+  recEvents           RecommendationEvent[]
 }
 
 model Profile {
@@ -222,6 +225,10 @@ model Product {
   views         ProductView[]
   campaigns     CampaignProduct[]
   activities    UserActivity[]
+  // Phase 11 back-relations
+  similarTo    ProductSimilarity[] @relation("ProductASimilarity")
+  similarFrom  ProductSimilarity[] @relation("ProductBSimilarity")
+  recEvents    RecommendationEvent[]
 }
 
 model ProductImage {
@@ -795,4 +802,55 @@ model LoyaltyHistory {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+}
+
+// ─── AI Recommendation Engine (Phase 11) ─────────────────────────────────────
+
+model ProductSimilarity {
+  id         String   @id @default(uuid())
+  productIdA String
+  productA   Product  @relation("ProductASimilarity", fields: [productIdA], references: [id], onDelete: Cascade)
+  productIdB String
+  productB   Product  @relation("ProductBSimilarity", fields: [productIdB], references: [id], onDelete: Cascade)
+  score      Decimal
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productIdA, productIdB])
+  @@index([productIdA, score])
+}
+
+model UserPreferenceProfile {
+  id                  String   @id @default(uuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  preferredCategories Json     // Map of categoryId -> weight
+  preferredBrands     Json     // Map of brandName -> weight
+  priceRangeLow       Decimal  @default(0)
+  priceRangeHigh      Decimal  @default(100000)
+  updatedAt           DateTime @updatedAt
+}
+
+model RecommendationCache {
+  id        String   @id @default(uuid())
+  cacheKey  String   @unique
+  data      Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([cacheKey, expiresAt])
+}
+
+model RecommendationEvent {
+  id                 String   @id @default(uuid())
+  userId             String?
+  user               User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recommendationType String   // SIMILAR | PERSONALIZED | TRENDING | FREQUENTLY_BOUGHT | ALSO_VIEWED | CATEGORY
+  productId          String
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  interaction        String   // IMPRESSION | CLICK | PURCHASE
+  createdAt          DateTime @default(now())
+
+  @@index([userId, recommendationType])
+  @@index([productId])
+  @@index([createdAt])
 }

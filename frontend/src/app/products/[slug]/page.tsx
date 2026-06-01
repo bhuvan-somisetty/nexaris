@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api, trackUserActivity } from '@/lib/api';
+import { api, trackUserActivity, getSimilarProducts, getFrequentlyBoughtTogether, RecommendedProduct } from '@/lib/api';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { Header } from '@/components/Header';
+import { RecommendationShelf } from '@/components/RecommendationShelf';
 import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock, Heart, Minus, Plus, Star, Flag, Trash2, Edit, MessageSquare, Award, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
@@ -58,6 +59,11 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Recommendation state
+  const [similarProducts, setSimilarProducts] = useState<RecommendedProduct[]>([]);
+  const [frequentlyBought, setFrequentlyBought] = useState<RecommendedProduct[]>([]);
+  const [recsLoading, setRecsLoading] = useState(false);
   
   // Variant Selection State
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
@@ -202,6 +208,25 @@ export default function ProductDetailPage() {
       fetchProduct();
     }
   }, [slug]);
+
+  // Fetch recommendations when product loads
+  useEffect(() => {
+    if (!product?.id) return;
+    const fetchRecs = async () => {
+      setRecsLoading(true);
+      try {
+        const [similar, fbt] = await Promise.all([
+          getSimilarProducts(product.id, 10),
+          getFrequentlyBoughtTogether(product.id, 8),
+        ]);
+        setSimilarProducts(similar);
+        setFrequentlyBought(fbt);
+      } catch { /* silent */ } finally {
+        setRecsLoading(false);
+      }
+    };
+    fetchRecs();
+  }, [product?.id]);
 
   const fetchReviews = async (prodId: string) => {
     try {
@@ -1164,6 +1189,27 @@ export default function ProductDetailPage() {
               </div>
             </div>
           )}
+          {/* ─── Recommendation Sections ─── */}
+          <div className="space-y-10 pt-4">
+            <RecommendationShelf
+              title="Frequently Bought Together"
+              subtitle="Customers who bought this also purchased"
+              products={frequentlyBought}
+              recommendationType="FREQUENTLY_BOUGHT"
+              icon="sparkles"
+              accentColor="amber"
+              loading={recsLoading}
+            />
+            <RecommendationShelf
+              title="Similar Products"
+              subtitle="Based on category and product attributes"
+              products={similarProducts}
+              recommendationType="SIMILAR"
+              icon="eye"
+              accentColor="indigo"
+              loading={recsLoading}
+            />
+          </div>
         </div>
       </main>
     </>
