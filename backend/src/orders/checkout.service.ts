@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus, FulfillmentStatus } from '@prisma/client';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentProvider } from '@prisma/client';
+import { v4 as uuidv4 } from 'uuid';
+
+const PAYMENT_EXPIRY_MINUTES = 15;
 
 @Injectable()
 export class CheckoutService {
@@ -34,19 +36,20 @@ export class CheckoutService {
       throw new BadRequestException('Your shopping cart is empty.');
     }
 
-    // 2. Validate Inventory
+    // 2. Validate Inventory (pre-check; authoritative re-check inside transaction)
     for (const item of cart.items) {
-      const stock = item.variantId
-        ? (item.variant?.inventory?.quantity ?? 0)
-        : (item.product?.inventory?.quantity ?? 0);
+      const inv = item.variantId
+        ? item.variant?.inventory
+        : item.product?.inventory;
 
-      if (stock <= 0) {
+      const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
+
+      if (available <= 0) {
         throw new BadRequestException(`Product "${item.product.name}" is out of stock.`);
       }
-
-      if (stock < item.quantity) {
+      if (available < item.quantity) {
         throw new BadRequestException(
-          `Insufficient stock for "${item.product.name}". Available: ${stock}, Requested: ${item.quantity}.`
+          `Insufficient stock for "${item.product.name}". Available: ${available}, Requested: ${item.quantity}.`,
         );
       }
     }
@@ -61,23 +64,12 @@ export class CheckoutService {
       if (!savedAddress || savedAddress.userId !== userId) {
         throw new NotFoundException('Selected shipping address not found.');
       }
-      addressData = {
-        firstName: savedAddress.firstName,
-        lastName: savedAddress.lastName,
-        street1: savedAddress.street1,
-        street2: savedAddress.street2,
-        city: savedAddress.city,
-        state: savedAddress.state,
-        postalCode: savedAddress.postalCode,
-        country: savedAddress.country,
-        phone: savedAddress.phone,
-      };
+      addressData = { ...savedAddress };
     } else if (data.newAddress) {
       const addr = data.newAddress;
       if (!addr.firstName || !addr.lastName || !addr.street1 || !addr.city || !addr.state || !addr.postalCode || !addr.country) {
         throw new BadRequestException('Invalid address payload. Missing required fields.');
       }
-      // Save it to user's address book for future checkout uses
       const savedAddr = await this.prisma.address.create({
         data: {
           userId,
@@ -92,17 +84,7 @@ export class CheckoutService {
           phone: addr.phone || null,
         },
       });
-      addressData = {
-        firstName: savedAddr.firstName,
-        lastName: savedAddr.lastName,
-        street1: savedAddr.street1,
-        street2: savedAddr.street2,
-        city: savedAddr.city,
-        state: savedAddr.state,
-        postalCode: savedAddr.postalCode,
-        country: savedAddr.country,
-        phone: savedAddr.phone,
-      };
+      addressData = { ...savedAddr };
     } else {
       throw new BadRequestException('A shipping address is required for checkout.');
     }
@@ -115,46 +97,42 @@ export class CheckoutService {
       return acc + price * item.quantity;
     }, 0);
 
-    const tax = subtotal * 0.18; // 18% GST
-    const shipping = subtotal > 999 ? 0 : 99; // ₹99 shipping, free above ₹999
+    const tax = subtotal * 0.18;            // 18% GST
+    const shipping = subtotal > 999 ? 0 : 99; // ₹99 standard, free above ₹999
     const total = subtotal + tax + shipping;
 
-    // 5. Execute transaction
+    // 5. Execute Transaction
     return this.prisma.$transaction(async (tx) => {
-      // Re-verify inventory inside transaction to prevent race conditions
+      // ── Re-validate + RESERVE inventory (not deduct) ──────────────────────
       for (const item of cart.items) {
         if (item.variantId) {
-          const variantInv = await tx.inventory.findUnique({
-            where: { variantId: item.variantId },
-          });
-          if (!variantInv || variantInv.quantity < item.quantity) {
-            throw new BadRequestException(`Stock changed. Insufficient stock for ${item.product.name}.`);
+          const inv = await tx.inventory.findUnique({ where: { variantId: item.variantId } });
+          const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
+          if (!inv || available < item.quantity) {
+            throw new BadRequestException(`Stock changed. Insufficient stock for "${item.product.name}".`);
           }
-          // Deduct quantity
           await tx.inventory.update({
-            where: { id: variantInv.id },
-            data: { quantity: { decrement: item.quantity } },
+            where: { id: inv.id },
+            data: { reserved: { increment: item.quantity } },
           });
         } else {
-          const productInv = await tx.inventory.findUnique({
-            where: { productId: item.productId },
-          });
-          if (!productInv || productInv.quantity < item.quantity) {
-            throw new BadRequestException(`Stock changed. Insufficient stock for ${item.product.name}.`);
+          const inv = await tx.inventory.findUnique({ where: { productId: item.productId } });
+          const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
+          if (!inv || available < item.quantity) {
+            throw new BadRequestException(`Stock changed. Insufficient stock for "${item.product.name}".`);
           }
-          // Deduct quantity
           await tx.inventory.update({
-            where: { id: productInv.id },
-            data: { quantity: { decrement: item.quantity } },
+            where: { id: inv.id },
+            data: { reserved: { increment: item.quantity } },
           });
         }
       }
 
-      // Create Order
+      // ── Create Order in PENDING state ────────────────────────────────────
       const order = await tx.order.create({
         data: {
           customerId: userId,
-          status: OrderStatus.CONFIRMED, // Place straight to CONFIRMED since payment integration is mock
+          status: OrderStatus.PENDING,
           subtotal,
           tax,
           shipping,
@@ -162,14 +140,14 @@ export class CheckoutService {
         },
       });
 
-      // Create OrderAddress snapshot
+      // ── Create OrderAddress snapshot ─────────────────────────────────────
       await tx.orderAddress.create({
         data: {
           orderId: order.id,
           firstName: addressData.firstName,
           lastName: addressData.lastName,
           street1: addressData.street1,
-          street2: addressData.street2,
+          street2: addressData.street2 || null,
           city: addressData.city,
           state: addressData.state,
           postalCode: addressData.postalCode,
@@ -178,7 +156,7 @@ export class CheckoutService {
         },
       });
 
-      // Create Order Items Snapshots
+      // ── Create OrderItem snapshots ───────────────────────────────────────
       for (const item of cart.items) {
         const itemPrice = item.variant?.price
           ? parseFloat(item.variant.price.toString())
@@ -197,38 +175,52 @@ export class CheckoutService {
             variantName: item.variant?.name || null,
             variantSku: item.variant?.sku || item.product.sku || null,
             sellerId: item.product.sellerId,
-            fulfillmentStatus: FulfillmentStatus.PENDING, // Default seller-level fulfillment
           },
         });
       }
 
-      // Create Timeline Log
+      // ── Create Payment record (PENDING) ──────────────────────────────────
+      const idempotencyKey = uuidv4();
+      const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+
+      const payment = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          provider: PaymentProvider.MOCK,
+          status: PaymentStatus.PENDING,
+          amount: total,
+          currency: 'INR',
+          idempotencyKey,
+          providerOrderId: `mock_order_${idempotencyKey}`,
+          expiresAt,
+        },
+      });
+
+      // ── Timeline: order placed ────────────────────────────────────────────
       await tx.orderTimeline.create({
         data: {
           orderId: order.id,
-          status: OrderStatus.CONFIRMED,
-          notes: 'Order checked out and confirmed successfully.',
+          status: OrderStatus.PENDING,
+          notes: 'Order placed. Awaiting payment confirmation.',
           actorId: userId,
         },
       });
 
-      // Clear Shopping Cart Items
-      await tx.cartItem.deleteMany({
-        where: { cartId: cart.id },
-      });
+      // ── Clear cart ────────────────────────────────────────────────────────
+      await tx.cartItem.deleteMany({ where: { cartId: cart.id } });
 
-      // Log Audit Trail
+      // ── Audit log ─────────────────────────────────────────────────────────
       await tx.auditLog.create({
         data: {
           userId,
           action: 'ORDER_CHECKOUT',
           entity: 'ORDER',
           entityId: order.id,
-          newValue: { total, subtotal, tax, shipping },
+          newValue: { total, subtotal, tax, shipping, paymentId: payment.id },
         },
       });
 
-      return order;
+      return { order, payment };
     });
   }
 }

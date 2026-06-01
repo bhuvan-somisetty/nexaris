@@ -114,9 +114,9 @@ export default function CheckoutPage() {
 
     try {
       const res = await api.post('/checkout', { newAddress: payload });
-      // Order placed successfully using the new inline address
-      await clearCart();
-      router.push(`/checkout/confirmation?orderId=${res.data.id}`);
+      // Checkout returns { order, payment } — redirect to payment page
+      const { order, payment } = res.data;
+      router.push(`/payment?orderId=${order.id}&paymentId=${payment.id}`);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to submit checkout.');
@@ -136,8 +136,9 @@ export default function CheckoutPage() {
 
     try {
       const res = await api.post('/checkout', { addressId: selectedAddressId });
-      await clearCart();
-      router.push(`/checkout/confirmation?orderId=${res.data.id}`);
+      // Checkout returns { order, payment } — redirect to payment page
+      const { order, payment } = res.data;
+      router.push(`/payment?orderId=${order.id}&paymentId=${payment.id}`);
     } catch (err: any) {
       console.error(err);
       setError(err.response?.data?.message || 'Failed to place order.');

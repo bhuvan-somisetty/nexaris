@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, OrderStatus, FulfillmentStatus } from '@prisma/client';
+import { Role, OrderStatus, FulfillmentStatus, PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
@@ -78,6 +78,12 @@ export class OrdersService {
             id: true,
             email: true,
             profile: true,
+          },
+        },
+        payment: {
+          include: {
+            attempts: { orderBy: { attemptNumber: 'asc' } },
+            refunds: true,
           },
         },
       },
@@ -202,7 +208,8 @@ export class OrdersService {
       if (order.customerId !== userId) {
         throw new ForbiddenException('You cannot cancel this order.');
       }
-      if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.CONFIRMED) {
+      const cancellableStatuses: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAYMENT_FAILED];
+      if (!cancellableStatuses.includes(order.status)) {
         throw new BadRequestException('Cannot cancel order after it has entered processing or shipping.');
       }
     } else if (role !== Role.ADMIN) {
@@ -215,33 +222,59 @@ export class OrdersService {
 
     // Run inventory rollback transaction
     await this.prisma.$transaction(async (tx) => {
-      // 1. Rollback stock counts
+      // 1. Release reservations for PENDING orders; rollback quantity for CONFIRMED+ orders
+      const orderWithPayment = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { payment: true },
+      });
+      const isPendingPayment =
+        orderWithPayment?.payment?.status === PaymentStatus.PENDING ||
+        order.status === OrderStatus.PAYMENT_FAILED;
+
       for (const item of order.items) {
         if (item.productId) {
           if (item.variantId) {
-            // Check variant inventory exists
-            const variantInv = await tx.inventory.findFirst({
-              where: { variantId: item.variantId },
-            });
+            const variantInv = await tx.inventory.findFirst({ where: { variantId: item.variantId } });
             if (variantInv) {
-              await tx.inventory.update({
-                where: { id: variantInv.id },
-                data: { quantity: { increment: item.quantity } },
-              });
+              if (isPendingPayment) {
+                // Release reservation only (quantity was never decremented)
+                await tx.inventory.update({
+                  where: { id: variantInv.id },
+                  data: { reserved: { decrement: item.quantity } },
+                });
+              } else {
+                // Full quantity rollback for paid+cancelled orders
+                await tx.inventory.update({
+                  where: { id: variantInv.id },
+                  data: { quantity: { increment: item.quantity } },
+                });
+              }
             }
           } else {
-            // Check product inventory exists
-            const productInv = await tx.inventory.findFirst({
-              where: { productId: item.productId },
-            });
+            const productInv = await tx.inventory.findFirst({ where: { productId: item.productId } });
             if (productInv) {
-              await tx.inventory.update({
-                where: { id: productInv.id },
-                data: { quantity: { increment: item.quantity } },
-              });
+              if (isPendingPayment) {
+                await tx.inventory.update({
+                  where: { id: productInv.id },
+                  data: { reserved: { decrement: item.quantity } },
+                });
+              } else {
+                await tx.inventory.update({
+                  where: { id: productInv.id },
+                  data: { quantity: { increment: item.quantity } },
+                });
+              }
             }
           }
         }
+      }
+
+      // 2. Mark pending payment as FAILED if exists
+      if (orderWithPayment?.payment && isPendingPayment) {
+        await tx.payment.update({
+          where: { id: orderWithPayment.payment.id },
+          data: { status: PaymentStatus.FAILED },
+        });
       }
 
       // 2. Set statuses

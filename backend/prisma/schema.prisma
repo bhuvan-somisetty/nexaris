@@ -273,6 +273,7 @@ model WishlistItem {
 
 enum OrderStatus {
   PENDING
+  PAYMENT_FAILED
   CONFIRMED
   PROCESSING
   SHIPPED
@@ -301,6 +302,7 @@ model Order {
   shippingAddress   OrderAddress?
   items             OrderItem[]
   timeline          OrderTimeline[]
+  payment           Payment?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
@@ -351,4 +353,73 @@ model OrderTimeline {
   notes     String?
   actorId   String?     // ID of user who modified status
   createdAt DateTime    @default(now())
+}
+
+// ─── Payment System ───────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentProvider {
+  MOCK
+  RAZORPAY
+}
+
+enum PaymentMethod {
+  MOCK
+  UPI
+  CARD
+  NETBANKING
+  WALLET
+}
+
+model Payment {
+  id                  String          @id @default(uuid())
+  orderId             String          @unique
+  order               Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider            PaymentProvider @default(MOCK)
+  status              PaymentStatus   @default(PENDING)
+  amount              Decimal
+  currency            String          @default("INR")
+  paymentMethod       PaymentMethod?  // Optional: populated after payment completion
+  providerOrderId     String?         // Razorpay order_id (null for MOCK)
+  providerPaymentId   String?         // Razorpay payment_id after capture
+  providerSignature   String?         // Razorpay HMAC signature for verification
+  idempotencyKey      String          @unique // UUID generated at checkout; prevents duplicate charges
+  expiresAt           DateTime        // Payment window expiry (15 min from creation)
+  attempts            PaymentAttempt[]
+  refunds             Refund[]
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model PaymentAttempt {
+  id            String        @id @default(uuid())
+  paymentId     String
+  payment       Payment       @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  attemptNumber Int           // 1-based retry counter (1 = first attempt, 2 = first retry, etc.)
+  status        PaymentStatus
+  providerRef   String?       // Provider transaction reference for this attempt
+  failureReason String?       // Error message on failure
+  metadata      Json?         // Raw provider response snapshot
+  createdAt     DateTime      @default(now())
+}
+
+model Refund {
+  id               String        @id @default(uuid())
+  paymentId        String
+  payment          Payment       @relation(fields: [paymentId], references: [id])
+  amount           Decimal
+  reason           String?
+  status           PaymentStatus @default(PENDING) // PENDING → SUCCESS / FAILED
+  providerRefundId String?       // Razorpay refund_id
+  initiatedById    String        // Admin or system user ID who triggered refund
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 }

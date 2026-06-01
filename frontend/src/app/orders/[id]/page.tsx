@@ -39,9 +39,19 @@ interface OrderAddress {
   phone?: string | null;
 }
 
+interface PaymentInfo {
+  id: string;
+  status: string;
+  amount: number;
+  provider: string;
+  paymentMethod: string | null;
+  attempts: { attemptNumber: number; status: string }[];
+  refunds: { amount: number; status: string }[];
+}
+
 interface Order {
   id: string;
-  status: 'PENDING' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
+  status: 'PENDING' | 'PAYMENT_FAILED' | 'CONFIRMED' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED' | 'REFUNDED';
   subtotal: string;
   tax: string;
   shipping: string;
@@ -50,6 +60,7 @@ interface Order {
   items: OrderItem[];
   shippingAddress?: OrderAddress | null;
   timeline: OrderTimeline[];
+  payment?: PaymentInfo | null;
 }
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -202,7 +213,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             </div>
 
-            {(order.status === 'CONFIRMED' || order.status === 'PENDING') && (
+            {(order.status === 'CONFIRMED' || order.status === 'PENDING' || order.status === 'PAYMENT_FAILED') && (
               <button
                 onClick={handleCancelOrder}
                 disabled={cancelling}
@@ -219,7 +230,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
 
           {/* Stepper Tracking Visual Timeline */}
-          {order.status === 'CANCELLED' || order.status === 'REFUNDED' ? (
+          {(order.status === 'CANCELLED' || order.status === 'REFUNDED') ? (
             <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-6 flex items-center gap-4">
               <div className="h-12 w-12 rounded-full bg-rose-500/10 flex items-center justify-center text-rose-400 shrink-0">
                 <AlertCircle className="h-6 w-6" />
@@ -227,8 +238,25 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <div>
                 <h3 className="text-sm font-bold text-rose-400">Order Cancelled</h3>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  This order has been cancelled and refunded. All items and quantities have been successfully restored to the product inventories.
+                  This order has been cancelled. All items and quantities have been successfully restored to the product inventories.
                 </p>
+              </div>
+            </div>
+          ) : order.status === 'PAYMENT_FAILED' ? (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-6 flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 shrink-0">
+                <AlertTriangle className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-400">Payment Failed</h3>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Your payment could not be processed. Your order is still pending. You can retry the payment or cancel this order.
+                </p>
+                {order.payment && (
+                  <Link href={`/payment?orderId=${order.id}&paymentId=${order.payment.id}`} className="text-xs text-amber-400 font-semibold mt-2 inline-block hover:underline">
+                    Retry Payment →
+                  </Link>
+                )}
               </div>
             </div>
           ) : (
@@ -389,6 +417,50 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       </p>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* Payment Info Card */}
+              {order.payment && (
+                <div className="rounded-2xl border border-slate-900 bg-slate-950 p-6 space-y-3">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider font-mono flex items-center space-x-1.5">
+                    <CreditCard className="h-4 w-4 text-indigo-400" />
+                    <span>Payment</span>
+                  </h3>
+                  <div className="space-y-2 text-xs font-mono">
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Status</span>
+                      <span className={`font-bold ${
+                        order.payment.status === 'SUCCESS' ? 'text-emerald-400' :
+                        order.payment.status === 'FAILED' ? 'text-rose-400' :
+                        order.payment.status === 'REFUNDED' ? 'text-purple-400' :
+                        'text-amber-400'
+                      }`}>{order.payment.status}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Provider</span>
+                      <span className="text-slate-300">{order.payment.provider}</span>
+                    </div>
+                    {order.payment.paymentMethod && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Method</span>
+                        <span className="text-slate-300">{order.payment.paymentMethod}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Attempts</span>
+                      <span className="text-slate-300">{order.payment.attempts.length}</span>
+                    </div>
+                    {order.payment.refunds.length > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Refunds</span>
+                        <span className="text-purple-400">{order.payment.refunds.length}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Link href="/payment/history" className="text-[10px] text-indigo-400 hover:underline font-mono">
+                    View Payment History →
+                  </Link>
                 </div>
               )}
 
