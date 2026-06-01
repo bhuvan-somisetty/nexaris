@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus, PaymentStatus, PaymentProvider, NotificationType } from '@prisma/client';
+import { OrderStatus, PaymentStatus, PaymentProvider, NotificationType, DiscountType, UserActivityType } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
+import { PromotionsService } from '../promotions/promotions.service';
 
 const PAYMENT_EXPIRY_MINUTES = 15;
 
@@ -11,9 +12,10 @@ export class CheckoutService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
+    private promotionsService: PromotionsService,
   ) {}
 
-  async processCheckout(userId: string, data: { addressId?: string; newAddress?: any }) {
+  async processCheckout(userId: string, data: { addressId?: string; newAddress?: any; couponCodes?: string[] }) {
     // 1. Fetch Cart
     const cart = await this.prisma.cart.findUnique({
       where: { userId },
@@ -93,7 +95,7 @@ export class CheckoutService {
       throw new BadRequestException('A shipping address is required for checkout.');
     }
 
-    // 4. Calculate Totals
+    // 4. Calculate Totals and Apply Promotions
     const subtotal = cart.items.reduce((acc, item) => {
       const price = item.variant?.price
         ? parseFloat(item.variant.price.toString())
@@ -101,9 +103,24 @@ export class CheckoutService {
       return acc + price * item.quantity;
     }, 0);
 
-    const tax = subtotal * 0.18;            // 18% GST
-    const shipping = subtotal > 999 ? 0 : 99; // ₹99 standard, free above ₹999
-    const total = subtotal + tax + shipping;
+    let discount = 0;
+    let freeShipping = false;
+    let appliedCoupons: string[] = [];
+
+    if (data.couponCodes && data.couponCodes.length > 0) {
+      const validation = await this.promotionsService.validateDiscount(userId, data.couponCodes, subtotal);
+      discount = validation.discountAmount;
+      freeShipping = validation.freeShipping;
+      appliedCoupons = validation.couponsApplied;
+    }
+
+    const discountedSubtotal = Math.max(0, subtotal - discount);
+    const tax = Number((discountedSubtotal * 0.18).toFixed(2)); // 18% GST on discounted subtotal
+    let shipping = subtotal > 999 ? 0 : 99; // ₹99 standard, free above ₹999
+    if (freeShipping) {
+      shipping = 0;
+    }
+    const total = Number((discountedSubtotal + tax + shipping).toFixed(2));
 
     // 5. Execute Transaction
     const result = await this.prisma.$transaction(async (tx) => {
@@ -141,8 +158,60 @@ export class CheckoutService {
           tax,
           shipping,
           total,
+          discount,
+          couponCode: appliedCoupons.join(','),
         },
       });
+
+      // ── Decrement coupon availability atomically & record redemptions ────
+      for (const code of appliedCoupons) {
+        const result = await tx.coupon.updateMany({
+          where: {
+            code,
+            isActive: true,
+            endDate: { gte: new Date() },
+            OR: [
+              { usageLimit: null },
+              { usedCount: { lt: this.prisma.coupon.fields.usageLimit } },
+            ],
+          },
+          data: {
+            usedCount: { increment: 1 },
+          },
+        });
+
+        if (result.count === 0) {
+          throw new BadRequestException(`Failed to apply coupon: ${code}. Limit reached or expired.`);
+        }
+
+        const coupon = await tx.coupon.findUnique({
+          where: { code },
+        });
+
+        if (coupon) {
+          let discountAppliedForThisCoupon = 0;
+          if (coupon.discountType === DiscountType.FREE_SHIPPING) {
+            discountAppliedForThisCoupon = 99; // value of standard shipping saved
+          } else if (coupon.discountType === DiscountType.PERCENTAGE) {
+            let valueDeducted = (subtotal * Number(coupon.value)) / 100;
+            if (coupon.maxDiscountAmount !== null) {
+              valueDeducted = Math.min(valueDeducted, Number(coupon.maxDiscountAmount));
+            }
+            discountAppliedForThisCoupon = valueDeducted;
+          } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
+            discountAppliedForThisCoupon = Math.min(subtotal, Number(coupon.value));
+          }
+
+          await tx.couponRedemption.create({
+            data: {
+              couponId: coupon.id,
+              customerId: userId,
+              orderId: order.id,
+              discountApplied: discountAppliedForThisCoupon,
+            },
+          });
+        }
+      }
 
       // ── Create OrderAddress snapshot ─────────────────────────────────────
       await tx.orderAddress.create({
@@ -235,6 +304,14 @@ export class CheckoutService {
         amount: result.order.total.toString(),
       },
     });
+
+    // Log purchase activity for recommendations engine
+    await this.promotionsService.trackUserActivity(
+      userId,
+      UserActivityType.PURCHASE,
+      undefined,
+      { orderId: result.order.id, total: result.order.total },
+    ).catch(err => console.error('Failed to log checkout activity:', err));
 
     return result;
   }

@@ -4,9 +4,10 @@ import { CheckoutController } from './checkout.controller';
 import { OrdersService } from './orders.service';
 import { CheckoutService } from './checkout.service';
 import { PrismaModule } from '../prisma/prisma.module';
+import { PromotionsModule } from '../promotions/promotions.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, PromotionsModule],
   controllers: [OrdersController, CheckoutController],
   providers: [OrdersService, CheckoutService],
   exports: [OrdersService, CheckoutService],

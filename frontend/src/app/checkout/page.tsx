@@ -49,6 +49,14 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Coupon States
+  const [couponCodes, setCouponCodes] = useState<string[]>([]);
+  const [couponInput, setCouponInput] = useState<string>('');
+  const [discount, setDiscount] = useState<number>(0);
+  const [freeShippingApplied, setFreeShippingApplied] = useState<boolean>(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState<boolean>(false);
+
   const fetchAddresses = async () => {
     try {
       setLoadingAddresses(true);
@@ -83,7 +91,7 @@ export default function CheckoutPage() {
 
   const items = cart?.items || [];
 
-  // Totals calculations
+  // Totals calculations and dynamic promotions application
   const subtotal = items.reduce((acc, item) => {
     const price = item.variant?.price
       ? parseFloat(item.variant.price)
@@ -91,9 +99,13 @@ export default function CheckoutPage() {
     return acc + price * item.quantity;
   }, 0);
 
-  const tax = subtotal * 0.18; // 18% GST
-  const shipping = subtotal > 999 ? 0 : 99; // ₹99 shipping, free above ₹999
-  const total = subtotal + tax + shipping;
+  const discountedSubtotal = Math.max(0, subtotal - discount);
+  const tax = Number((discountedSubtotal * 0.18).toFixed(2)); // 18% GST on discounted subtotal
+  let shipping = subtotal > 999 ? 0 : 99; // ₹99 shipping, free above ₹999
+  if (freeShippingApplied) {
+    shipping = 0;
+  }
+  const total = Number((discountedSubtotal + tax + shipping).toFixed(2));
 
   const handleAddNewAddress = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +125,7 @@ export default function CheckoutPage() {
     };
 
     try {
-      const res = await api.post('/checkout', { newAddress: payload });
+      const res = await api.post('/checkout', { newAddress: payload, couponCodes });
       // Checkout returns { order, payment } — redirect to payment page
       const { order, payment } = res.data;
       router.push(`/payment?orderId=${order.id}&paymentId=${payment.id}`);
@@ -135,7 +147,7 @@ export default function CheckoutPage() {
     setSubmitting(true);
 
     try {
-      const res = await api.post('/checkout', { addressId: selectedAddressId });
+      const res = await api.post('/checkout', { addressId: selectedAddressId, couponCodes });
       // Checkout returns { order, payment } — redirect to payment page
       const { order, payment } = res.data;
       router.push(`/payment?orderId=${order.id}&paymentId=${payment.id}`);
@@ -144,6 +156,66 @@ export default function CheckoutPage() {
       setError(err.response?.data?.message || 'Failed to place order.');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleApplyCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponInput.trim()) return;
+
+    setCouponLoading(true);
+    setCouponError(null);
+
+    const code = couponInput.trim().toUpperCase();
+    if (couponCodes.includes(code)) {
+      setCouponError('Coupon already applied.');
+      setCouponLoading(false);
+      return;
+    }
+
+    const nextCodes = [...couponCodes, code];
+
+    try {
+      const res = await api.post('/promotions/coupons/validate', {
+        codes: nextCodes,
+        subtotal
+      });
+      setCouponCodes(res.data.couponsApplied);
+      setDiscount(res.data.discountAmount);
+      setFreeShippingApplied(res.data.freeShipping);
+      setCouponInput('');
+    } catch (err: any) {
+      console.error(err);
+      setCouponError(err.response?.data?.message || 'Invalid coupon code or stacking rules violated.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const handleRemoveCoupon = async (codeToRemove: string) => {
+    setCouponLoading(true);
+    setCouponError(null);
+    const nextCodes = couponCodes.filter(c => c !== codeToRemove);
+    if (nextCodes.length === 0) {
+      setCouponCodes([]);
+      setDiscount(0);
+      setFreeShippingApplied(false);
+      setCouponLoading(false);
+      return;
+    }
+    try {
+      const res = await api.post('/promotions/coupons/validate', {
+        codes: nextCodes,
+        subtotal
+      });
+      setCouponCodes(res.data.couponsApplied);
+      setDiscount(res.data.discountAmount);
+      setFreeShippingApplied(res.data.freeShipping);
+    } catch (err: any) {
+      console.error(err);
+      setCouponError(err.response?.data?.message || 'Error updating coupons.');
+    } finally {
+      setCouponLoading(false);
     }
   };
 
@@ -452,6 +524,12 @@ export default function CheckoutPage() {
                     <span>Items Subtotal</span>
                     <span className="font-semibold text-slate-200 font-mono">₹{subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                   </div>
+                  {discount > 0 && (
+                    <div className="flex justify-between text-emerald-400">
+                      <span>Promo Discount</span>
+                      <span className="font-semibold font-mono">-₹{discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-slate-400">
                     <span>GST (18%)</span>
                     <span className="font-semibold text-slate-200 font-mono">₹{tax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
@@ -467,12 +545,63 @@ export default function CheckoutPage() {
                     </span>
                   </div>
 
-                  {shipping > 0 && (
+                  {shipping > 0 && !freeShippingApplied && (
                     <div className="rounded-lg bg-indigo-500/5 border border-indigo-500/10 p-2.5 text-[10px] text-indigo-400 flex items-start gap-1.5 leading-relaxed">
                       <Sparkles className="h-3 w-3 shrink-0 mt-0.5 animate-pulse" />
                       <span>Add ₹{(1000 - subtotal).toLocaleString('en-IN')} more to unlock free shipping.</span>
                     </div>
                   )}
+
+                  {/* Promo Coupons Section */}
+                  <div className="border-t border-slate-900 pt-4 space-y-3">
+                    <label className="block text-xs font-semibold text-slate-450 uppercase tracking-wider font-mono">
+                      Coupons & Offers
+                    </label>
+                    <form onSubmit={handleApplyCoupon} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="COUPONCODE"
+                        value={couponInput}
+                        onChange={(e) => setCouponInput(e.target.value)}
+                        disabled={couponLoading}
+                        className="flex-1 px-3 py-1.5 bg-slate-900 border border-slate-850 rounded-xl text-xs focus:outline-none text-white disabled:opacity-50"
+                      />
+                      <button
+                        type="submit"
+                        disabled={couponLoading || !couponInput.trim()}
+                        className="inline-flex h-8 items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 px-3 text-xs font-semibold text-white transition-all disabled:opacity-50"
+                      >
+                        {couponLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Apply'}
+                      </button>
+                    </form>
+
+                    {couponError && (
+                      <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-2.5 text-[10px] text-red-400 flex items-start gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        <span>{couponError}</span>
+                      </div>
+                    )}
+
+                    {couponCodes.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {couponCodes.map((code) => (
+                          <div
+                            key={code}
+                            className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-xs text-indigo-400"
+                          >
+                            <span>{code}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCoupon(code)}
+                              className="text-[10px] font-bold ml-1 hover:text-indigo-200"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="border-t border-slate-900 pt-4 flex justify-between text-base font-extrabold">
                     <span>Grand Total</span>

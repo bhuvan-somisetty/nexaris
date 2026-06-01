@@ -7,6 +7,17 @@ async function main() {
   const salt = await bcrypt.genSalt(10);
   
   // Clean database in reverse-dependency order
+  await prisma.referral.deleteMany({});
+  await prisma.referralCode.deleteMany({});
+  await prisma.loyaltyHistory.deleteMany({});
+  await prisma.loyaltyProfile.deleteMany({});
+  await prisma.couponRedemption.deleteMany({});
+  await prisma.coupon.deleteMany({});
+  await prisma.campaignProduct.deleteMany({});
+  await prisma.campaign.deleteMany({});
+  await prisma.userSegment.deleteMany({});
+  await prisma.userActivity.deleteMany({});
+
   await prisma.inventory.deleteMany({});
   await prisma.productAttribute.deleteMany({});
   await prisma.productVariant.deleteMany({});
@@ -630,6 +641,161 @@ async function main() {
     }
   }
   console.log('Seeded views and orders analytics history.');
+
+  // --- Seed Promotions & Marketing Mock Data ---
+  console.log('Seeding coupons, campaigns, and loyalty data...');
+  
+  // Seed sample platform coupon
+  await prisma.coupon.create({
+    data: {
+      code: 'WELCOME100',
+      discountType: 'FIXED_AMOUNT',
+      value: 100.00,
+      minOrderValue: 500.00,
+      startDate: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
+      usageLimit: 1000,
+      perUserLimit: 1,
+      isActive: true,
+    },
+  });
+
+  // Seed sample seller-specific coupon
+  await prisma.coupon.create({
+    data: {
+      code: 'BOBSBOOKS',
+      discountType: 'PERCENTAGE',
+      value: 15.00,
+      minOrderValue: 200.00,
+      maxDiscountAmount: 50.00,
+      startDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      usageLimit: 500,
+      perUserLimit: 2,
+      sellerId: approvedSeller.id,
+      isActive: true,
+    },
+  });
+
+  // Seed free shipping coupon
+  await prisma.coupon.create({
+    data: {
+      code: 'FREESHIP',
+      discountType: 'FREE_SHIPPING',
+      value: 0.00,
+      minOrderValue: 100.00,
+      startDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      usageLimit: null,
+      perUserLimit: 10,
+      isActive: true,
+    },
+  });
+
+  // Seed sample A/B Testing Campaign
+  const parentCampaign = await prisma.campaign.create({
+    data: {
+      name: 'Summer Gadgets Bash',
+      description: 'Find premium gadgets discounted for our summer sale catalog.',
+      type: 'FLASH_SALE',
+      discountType: 'PERCENTAGE',
+      value: 0.00,
+      startDate: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
+      sellerId: approvedSeller.id,
+      abTest: true,
+      isActive: true,
+      isApproved: true,
+    },
+  });
+
+  await prisma.campaign.create({
+    data: {
+      name: 'Summer Gadgets Bash (Variant A)',
+      description: 'Find premium gadgets discounted for our summer sale catalog.',
+      type: 'FLASH_SALE',
+      discountType: 'PERCENTAGE',
+      value: 10.00,
+      startDate: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
+      sellerId: approvedSeller.id,
+      abTest: true,
+      variant: 'A',
+      parentCampaignId: parentCampaign.id,
+      clicks: 450,
+      conversions: 35,
+      revenue: 35000.00,
+      isActive: true,
+      isApproved: true,
+    },
+  });
+
+  await prisma.campaign.create({
+    data: {
+      name: 'Summer Gadgets Bash (Variant B)',
+      description: 'Find premium gadgets discounted for our summer sale catalog.',
+      type: 'FLASH_SALE',
+      discountType: 'PERCENTAGE',
+      value: 15.00,
+      startDate: new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 15 * 24 * 60 * 60 * 1000),
+      sellerId: approvedSeller.id,
+      abTest: true,
+      variant: 'B',
+      parentCampaignId: parentCampaign.id,
+      clicks: 480,
+      conversions: 42,
+      revenue: 41000.00,
+      isActive: true,
+      isApproved: true,
+    },
+  });
+
+  // Seed Loyalty profiles for customers
+  const namedCustomers = [
+    { cust: customer, firstName: 'John' },
+    { cust: customer2, firstName: 'Jane' },
+    { cust: customer3, firstName: 'Mike' },
+  ];
+
+  for (const { cust, firstName } of namedCustomers) {
+    const points = cust.id === customer.id ? 1200 : cust.id === customer2.id ? 600 : 2600;
+    const tier = points >= 5000 ? 'PLATINUM' : points >= 2500 ? 'GOLD' : points >= 1000 ? 'SILVER' : 'BRONZE';
+
+    await prisma.loyaltyProfile.create({
+      data: {
+        userId: cust.id,
+        points,
+        tier: tier as any,
+      },
+    });
+
+    await prisma.loyaltyHistory.create({
+      data: {
+        userId: cust.id,
+        pointsChange: points,
+        reason: 'Seeded initial loyalty balance based on historical orders.',
+      },
+    });
+
+    // Seed referral codes
+    const namePart = firstName.toUpperCase().substring(0, 4);
+    await prisma.referralCode.create({
+      data: {
+        userId: cust.id,
+        code: `REF-${namePart}-1234`,
+      },
+    });
+  }
+
+  // Set up referred relationship (customer referred customer2)
+  await prisma.referral.create({
+    data: {
+      referrerId: customer.id,
+      refereeId: customer2.id,
+      rewardClaimed: true,
+    },
+  });
 
   console.log('Database seeding finished successfully!');
 }

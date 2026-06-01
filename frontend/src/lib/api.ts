@@ -106,3 +106,11 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const trackUserActivity = async (activityType: string, productId?: string, metadata?: any) => {
+  try {
+    await api.post('/promotions/track', { activityType, productId, metadata });
+  } catch (err) {
+    console.error('Failed to log user activity event:', err);
+  }
+};

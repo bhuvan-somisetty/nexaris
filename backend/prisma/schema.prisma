@@ -82,6 +82,16 @@ model User {
   sellerRatingsGiven  SellerRating[] @relation("SellerRatingsGiven")
   sellerRatingsRecv   SellerRating[] @relation("SellerRatingsReceived")
   notificationPrefs   NotificationPreference[]
+  couponRedemptions   CouponRedemption[]
+  couponsCreated      Coupon[]
+  campaignsCreated    Campaign[]
+  userSegments        UserSegment[]
+  userActivities      UserActivity[]
+  referralCode        ReferralCode?
+  referralsGiven      Referral[]             @relation("Referrer")
+  referralReceived    Referral?              @relation("Referee")
+  loyaltyProfile      LoyaltyProfile?
+  loyaltyHistory      LoyaltyHistory[]
 }
 
 model Profile {
@@ -182,6 +192,7 @@ model Category {
   parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children    Category[] @relation("CategoryHierarchy")
   products    Product[]
+  campaigns   Campaign[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 }
@@ -209,6 +220,8 @@ model Product {
   orderItems    OrderItem[]
   reviews       Review[]
   views         ProductView[]
+  campaigns     CampaignProduct[]
+  activities    UserActivity[]
 }
 
 model ProductImage {
@@ -337,6 +350,8 @@ model Order {
   tax               Decimal
   shipping          Decimal
   total             Decimal
+  discount          Decimal         @default(0)
+  couponCode        String?
   shippingAddress   OrderAddress?
   items             OrderItem[]
   timeline          OrderTimeline[]
@@ -594,4 +609,190 @@ model ProductView {
   createdAt DateTime @default(now())
 
   @@index([productId, createdAt])
+}
+
+// ─── Marketing & Promotions System (Phase 10) ─────────────────────────────────
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_SHIPPING
+}
+
+enum CampaignType {
+  FLASH_SALE
+  FESTIVAL_SALE
+  SEASONAL
+  BUY_X_GET_Y
+  BUNDLE
+  CATEGORY_DISCOUNT
+}
+
+enum SegmentType {
+  NEW
+  RETURNING
+  HIGH_VALUE
+  INACTIVE
+  VIP
+}
+
+enum UserActivityType {
+  CLICK
+  ADD_TO_CART
+  SEARCH
+  VIEW
+  PURCHASE
+  WISHLIST
+  REVIEW
+  SESSION_START
+  SESSION_END
+}
+
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model Coupon {
+  id                String             @id @default(uuid())
+  code              String             @unique
+  discountType      DiscountType
+  value             Decimal
+  minOrderValue     Decimal            @default(0)
+  maxDiscountAmount Decimal?
+  startDate         DateTime
+  endDate           DateTime
+  usageLimit        Int?
+  usedCount         Int                @default(0)
+  perUserLimit      Int                @default(1)
+  sellerId          String?            // Nullable for Platform-wide coupons
+  seller            User?              @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  isActive          Boolean            @default(true)
+  stackable         Boolean            @default(false)
+  redemptions       CouponRedemption[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([code, isActive])
+  @@index([sellerId])
+}
+
+model CouponRedemption {
+  id               String   @id @default(uuid())
+  couponId         String
+  coupon           Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  customerId       String
+  customer         User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId          String
+  discountApplied  Decimal
+  createdAt        DateTime @default(now())
+
+  @@unique([couponId, customerId, orderId])
+  @@index([customerId])
+}
+
+model Campaign {
+  id               String            @id @default(uuid())
+  name             String
+  description      String
+  type             CampaignType
+  discountType     DiscountType
+  value            Decimal
+  startDate        DateTime
+  endDate          DateTime
+  sellerId         String?           // Nullable for Platform-wide campaigns
+  seller           User?             @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  categoryId       String?
+  category         Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  isActive         Boolean           @default(true)
+  isApproved       Boolean           @default(true)
+  abTest           Boolean           @default(false)
+  variant          String?           // e.g. "A" or "B"
+  clicks           Int               @default(0)
+  conversions      Int               @default(0)
+  revenue          Decimal           @default(0)
+  parentCampaignId String?
+  parentCampaign   Campaign?         @relation("ABTestCampaign", fields: [parentCampaignId], references: [id], onDelete: Cascade)
+  childCampaigns   Campaign[]        @relation("ABTestCampaign")
+  products         CampaignProduct[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([sellerId])
+  @@index([isActive, startDate, endDate])
+}
+
+model CampaignProduct {
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, productId])
+}
+
+model UserSegment {
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  segment   SegmentType
+  createdAt DateTime    @default(now())
+
+  @@id([userId, segment])
+}
+
+model UserActivity {
+  id           String           @id @default(uuid())
+  userId       String?          // Nullable for guests
+  user         User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activityType UserActivityType
+  productId    String?
+  product      Product?         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  metadata     Json?            // For search terms or page route details
+  createdAt    DateTime         @default(now())
+
+  @@index([userId, activityType])
+  @@index([productId])
+}
+
+model ReferralCode {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Referral {
+  id            String   @id @default(uuid())
+  referrerId    String
+  referrer      User     @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId     String   @unique
+  referee       User     @relation("Referee", fields: [refereeId], references: [id], onDelete: Cascade)
+  rewardClaimed Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([referrerId])
+}
+
+model LoyaltyProfile {
+  id        String      @id @default(uuid())
+  userId    String      @unique
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  points    Int         @default(0)
+  tier      LoyaltyTier @default(BRONZE)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+model LoyaltyHistory {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pointsChange Int
+  reason       String
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
 }

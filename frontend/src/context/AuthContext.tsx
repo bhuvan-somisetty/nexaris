@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../lib/api';
+import { api, trackUserActivity } from '../lib/api';
 import { useRouter } from 'next/navigation';
 
 export interface Profile {
@@ -61,6 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await api.get('/auth/me');
           setUser(res.data);
           localStorage.setItem('user', JSON.stringify(res.data));
+          trackUserActivity('SESSION_START');
         } catch (err) {
           console.error('Failed to validate initial token', err);
           // If JWT validation fails, try to refresh immediately
@@ -104,6 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(loggedUser));
       setUser(loggedUser);
+      trackUserActivity('SESSION_START');
 
       // Redirect based on role
       if (loggedUser.role === 'ADMIN') {
@@ -154,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     setLoading(true);
     try {
+      trackUserActivity('SESSION_END').catch(() => {});
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         await api.post('/auth/logout', { refreshToken });

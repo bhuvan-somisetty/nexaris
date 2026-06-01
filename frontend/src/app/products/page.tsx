@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
+import { api, trackUserActivity } from '@/lib/api';
 import { Header } from '@/components/Header';
 import Link from 'next/link';
 import { Search, SlidersHorizontal, ChevronRight, ArrowUpDown, ChevronLeft, Loader2, PackageX, Sparkles, Heart } from 'lucide-react';
@@ -98,6 +98,13 @@ export default function DiscoveryPage() {
       setProducts(res.data.products);
       setTotal(res.data.total);
       setTotalPages(res.data.totalPages || 1);
+
+      if (search) {
+        trackUserActivity('SEARCH', undefined, { query: search });
+      }
+      if (selectedCategory) {
+        trackUserActivity('VIEW', undefined, { categoryId: selectedCategory });
+      }
 
       // Count active filters
       let count = 0;

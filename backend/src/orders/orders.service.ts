@@ -2,12 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../prisma/prisma.service';
 import { Role, OrderStatus, FulfillmentStatus, PaymentStatus, NotificationType } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { PromotionsService } from '../promotions/promotions.service';
 
 @Injectable()
 export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private eventEmitter: EventEmitter2,
+    private promotionsService: PromotionsService,
   ) {}
 
   async findAll(
@@ -202,6 +204,20 @@ export class OrdersService {
         updatedOrder.status,
         updatedOrder.total.toString(),
       );
+      if (updatedOrder.status === OrderStatus.DELIVERED) {
+        const points = Math.floor(parseFloat(updatedOrder.total.toString()) / 10);
+        if (points > 0) {
+          await this.promotionsService.awardLoyaltyPoints(
+            updatedOrder.customerId,
+            points,
+            `Loyalty points for order: ${updatedOrder.id}`,
+          ).catch(err => console.error('Failed to award loyalty points:', err));
+        }
+        await this.promotionsService.processReferralPurchaseRewards(
+          updatedOrder.customerId,
+          updatedOrder.id,
+        ).catch(err => console.error('Failed to process referral rewards:', err));
+      }
     }
     return updatedOrder;
   }
@@ -396,6 +412,20 @@ export class OrdersService {
         updatedOrder.status,
         updatedOrder.total.toString(),
       );
+      if (updatedOrder.status === OrderStatus.DELIVERED) {
+        const points = Math.floor(parseFloat(updatedOrder.total.toString()) / 10);
+        if (points > 0) {
+          await this.promotionsService.awardLoyaltyPoints(
+            updatedOrder.customerId,
+            points,
+            `Loyalty points for order: ${updatedOrder.id}`,
+          ).catch(err => console.error('Failed to award loyalty points:', err));
+        }
+        await this.promotionsService.processReferralPurchaseRewards(
+          updatedOrder.customerId,
+          updatedOrder.id,
+        ).catch(err => console.error('Failed to process referral rewards:', err));
+      }
     }
     return updatedOrder;
   }

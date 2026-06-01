@@ -16,8 +16,9 @@ export class CheckoutController {
     @Request() req: any,
     @Body('addressId') addressId?: string,
     @Body('newAddress') newAddress?: any,
+    @Body('couponCodes') couponCodes?: string[],
   ) {
     const userId = req.user.id;
-    return this.checkoutService.processCheckout(userId, { addressId, newAddress });
+    return this.checkoutService.processCheckout(userId, { addressId, newAddress, couponCodes });
   }
 }

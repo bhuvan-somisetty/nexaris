@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
-import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight } from 'lucide-react';
+import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight, Gift } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user, loading } = useAuth();
@@ -167,6 +167,23 @@ export default function SellerDashboard() {
                       <div>
                         <h4 className="font-bold text-slate-200">Customer Reviews</h4>
                         <p className="text-xs text-slate-500">Monitor store feedback & ratings.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-slate-650" />
+                  </button>
+
+                  {/* Promotions & Marketing */}
+                  <button
+                    onClick={() => router.push('/seller/promotions')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-slate-900 bg-slate-900/10 hover:border-slate-800 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <Gift className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Marketing & Promos</h4>
+                        <p className="text-xs text-slate-500">Manage coupons, A/B campaigns, and ROI.</p>
                       </div>
                     </div>
                     <ArrowRight className="h-5 w-5 text-slate-650" />

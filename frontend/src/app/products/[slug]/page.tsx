@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, trackUserActivity } from '@/lib/api';
 import { uploadImageToCloudinary } from '@/lib/upload';
 import { Header } from '@/components/Header';
 import { ChevronLeft, ShieldCheck, CheckCircle2, AlertTriangle, AlertCircle, ShoppingCart, Tag, ArrowRight, Loader2, Clock, Heart, Minus, Plus, Star, Flag, Trash2, Edit, MessageSquare, Award, Upload } from 'lucide-react';
@@ -137,6 +137,7 @@ export default function ProductDetailPage() {
     
     if (res.success) {
       setSuccessMessage(res.message || 'Item added to cart!');
+      trackUserActivity('ADD_TO_CART', product.id, { variantId: selectedVariant?.id, quantity });
       setTimeout(() => setSuccessMessage(null), 5000);
     } else {
       setErrorMessage(res.message || 'Failed to add item to cart.');
@@ -167,6 +168,7 @@ export default function ProductDetailPage() {
       const res = await addToWishlist(product.id, selectedVariant?.id || null);
       if (res.success) {
         setSuccessMessage(res.message || 'Saved item to wishlist');
+        trackUserActivity('WISHLIST', product.id, { variantId: selectedVariant?.id });
         setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         setErrorMessage(res.message || 'Failed to save to wishlist.');
@@ -182,6 +184,7 @@ export default function ProductDetailPage() {
         setLoading(true);
         const res = await api.get(`/products/${slug}`);
         setProduct(res.data);
+        trackUserActivity('VIEW', res.data.id, { name: res.data.name, categoryId: res.data.categoryId });
         
         // If product has variants, select the first variant by default
         if (res.data.variants && res.data.variants.length > 0) {
@@ -270,6 +273,7 @@ export default function ProductDetailPage() {
           images: reviewImages,
         });
         setSuccessMessage('Review posted successfully!');
+        trackUserActivity('REVIEW', product.id, { rating: reviewRating });
       }
       
       // Reset form

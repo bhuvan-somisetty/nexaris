@@ -19,6 +19,7 @@ import { HealthModule } from './health/health.module';
 import { UploadModule } from './upload/upload.module';
 import { RedisModule } from './redis/redis.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { PromotionsModule } from './promotions/promotions.module';
 
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -47,6 +48,7 @@ import { APP_GUARD } from '@nestjs/core';
     HealthModule,
     UploadModule,
     AnalyticsModule,
+    PromotionsModule,
   ],
   controllers: [AppController],
   providers: [
