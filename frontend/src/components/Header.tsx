@@ -128,7 +128,7 @@ export const Header: React.FC = () => {
                                           </p>
                                         )}
                                         <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                                          {item.quantity} × ${price.toFixed(2)}
+                                          {item.quantity} × ₹{price.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </p>
                                       </div>
                                     </div>
@@ -148,10 +148,10 @@ export const Header: React.FC = () => {
                                 <div className="flex justify-between text-xs">
                                   <span className="text-slate-400">Subtotal</span>
                                   <span className="font-bold text-indigo-400 font-mono">
-                                    ${cartSubtotal.toFixed(2)}
+                                    ₹{cartSubtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                   </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2 pt-1 text-center">
                                   <Link
                                     href="/cart"
                                     onClick={() => setShowMiniCart(false)}
@@ -159,12 +159,13 @@ export const Header: React.FC = () => {
                                   >
                                     View Cart
                                   </Link>
-                                  <button
-                                    disabled
-                                    className="inline-flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-xs font-semibold text-white opacity-50 cursor-not-allowed"
+                                  <Link
+                                    href="/checkout"
+                                    onClick={() => setShowMiniCart(false)}
+                                    className="inline-flex h-9 items-center justify-center rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-600 hover:to-purple-700 transition-all"
                                   >
                                     Checkout
-                                  </button>
+                                  </Link>
                                 </div>
                               </div>
                             </>
