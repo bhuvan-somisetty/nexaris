@@ -4,9 +4,20 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 
 async function main() {
+  // Ensure extensions and indexes exist
+  console.log('Initializing Postgres extensions and custom GIN indexes...');
+  await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+  await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS unaccent`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS product_fts_idx ON "Product" USING gin(to_tsvector('english', name || ' ' || description))`);
+  await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS product_name_trgm_idx ON "Product" USING gin (name gin_trgm_ops)`);
+
   const salt = await bcrypt.genSalt(10);
   
   // Clean database in reverse-dependency order
+  await prisma.searchClickLog.deleteMany({});
+  await prisma.searchQueryLog.deleteMany({});
+  await prisma.searchHistory.deleteMany({});
+  await prisma.searchSynonym.deleteMany({});
   await prisma.referral.deleteMany({});
   await prisma.referralCode.deleteMany({});
   await prisma.loyaltyHistory.deleteMany({});
@@ -795,6 +806,21 @@ async function main() {
       refereeId: customer2.id,
       rewardClaimed: true,
     },
+  });
+
+  // Seed Search Synonyms
+  console.log('Seeding search synonyms...');
+  await prisma.searchSynonym.createMany({
+    data: [
+      { word: 'iphone', synonyms: ['apple phone'] },
+      { word: 'apple phone', synonyms: ['iphone'] },
+      { word: 'tv', synonyms: ['television'] },
+      { word: 'television', synonyms: ['tv'] },
+      { word: 'earbuds', synonyms: ['earphones'] },
+      { word: 'earphones', synonyms: ['earbuds'] },
+      { word: 'mobile', synonyms: ['smartphone'] },
+      { word: 'smartphone', synonyms: ['mobile'] },
+    ],
   });
 
   console.log('Database seeding finished successfully!');

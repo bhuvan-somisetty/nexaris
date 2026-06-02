@@ -270,4 +270,110 @@ export const trackShipment = async (shipmentId: string) => {
   return res.data;
 };
 
+// ─── Search & Discovery API ─────────────────────────────────────────────────
+
+export interface SearchFacetItem {
+  name: string;
+  count: number;
+}
+
+export interface SearchProductResult {
+  product: any; // Product with relations
+  score: number;
+  stockMultiplier: number;
+}
+
+export interface SearchFacets {
+  brands: SearchFacetItem[];
+  categories: SearchFacetItem[];
+  priceRange: { min: number; max: number };
+  availabilityCount: number;
+}
+
+export interface SearchResponse {
+  products: SearchProductResult[];
+  total: number;
+  facets: SearchFacets;
+  page: number;
+  limit: number;
+  isFuzzyFallback: boolean;
+  noResultsRecovery: boolean;
+  searchQueryLogId?: string | null;
+}
+
+export interface SearchParams {
+  q?: string;
+  categoryId?: string;
+  brand?: string;
+  sellerId?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  inStock?: boolean;
+  rating?: number;
+  page?: number;
+  limit?: number;
+}
+
+export const searchProducts = async (params: SearchParams) => {
+  const res = await api.get<SearchResponse>('/search', {
+    params: {
+      ...params,
+      inStock: params.inStock ? 'true' : undefined,
+    },
+  });
+  return res.data;
+};
+
+export const getAutocompleteSuggestions = async (q: string) => {
+  const res = await api.get<{ suggestions: string[] }>('/search/autocomplete', { params: { q } });
+  return res.data;
+};
+
+export const getTrendingSearches = async () => {
+  const res = await api.get<{ queries: string[] }>('/search/trending');
+  return res.data;
+};
+
+export const getSearchHistory = async () => {
+  const res = await api.get<{ history: Array<{ id: string; query: string; createdAt: string }> }>('/search/history');
+  return res.data;
+};
+
+export const deleteSearchHistory = async (id: string) => {
+  const res = await api.delete<{ success: boolean }>(`/search/history/${id}`);
+  return res.data;
+};
+
+export const logSearchClick = async (searchQueryLogId: string, productId: string) => {
+  const res = await api.post<{ success: boolean }>('/search/click', { searchQueryLogId, productId });
+  return res.data;
+};
+
+export const getSellerSearchAnalytics = async () => {
+  const res = await api.get<{
+    impressions: number;
+    ctr: number;
+    conversionRate: number;
+    funnel: {
+      impressions: number;
+      clicks: number;
+      cartAdds: number;
+      purchases: number;
+    };
+    topKeywords: Array<{ query: string; count: number }>;
+    zeroResultKeywords: Array<{ query: string; count: number }>;
+  }>('/search/seller/analytics');
+  return res.data;
+};
+
+export const getSearchRecovery = async () => {
+  const res = await api.get<{
+    trendingProducts: any[];
+    categories: any[];
+    recommendations: any[];
+  }>('/search/recovery');
+  return res.data;
+};
+
+
 

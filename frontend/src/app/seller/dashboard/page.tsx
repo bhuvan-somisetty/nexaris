@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
-import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight, Gift, Lightbulb } from 'lucide-react';
+import { Store, CheckCircle, Clock, ShoppingBag, BarChart3, Package, Loader2, MessageSquare, ArrowRight, Gift, Lightbulb, Search } from 'lucide-react';
 
 export default function SellerDashboard() {
   const { user, loading } = useAuth();
@@ -204,6 +204,23 @@ export default function SellerDashboard() {
                       </div>
                     </div>
                     <ArrowRight className="h-5 w-5 text-purple-500" />
+                  </button>
+
+                  {/* Search Performance */}
+                  <button
+                    onClick={() => router.push('/seller/analytics/search')}
+                    className="flex items-center justify-between p-6 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 hover:border-indigo-500/40 hover:bg-indigo-500/10 transition-all text-left"
+                  >
+                    <div className="flex items-center space-x-4">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <Search className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-slate-200">Search Performance</h4>
+                        <p className="text-xs text-slate-500">Track impressions, CTR, conversion rates, and search keywords.</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-5 w-5 text-indigo-500" />
                   </button>
                 </div>
               </div>

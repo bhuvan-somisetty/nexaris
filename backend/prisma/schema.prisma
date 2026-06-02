@@ -95,6 +95,9 @@ model User {
   // Phase 11 back-relations
   preferenceProfile   UserPreferenceProfile?
   recEvents           RecommendationEvent[]
+  // Phase 13 relations
+  searchHistories     SearchHistory[]
+  searchQueryLogs     SearchQueryLog[]
 }
 
 model Profile {
@@ -229,6 +232,8 @@ model Product {
   similarTo    ProductSimilarity[] @relation("ProductASimilarity")
   similarFrom  ProductSimilarity[] @relation("ProductBSimilarity")
   recEvents    RecommendationEvent[]
+  // Phase 13 relations
+  searchClicks SearchClickLog[]
 }
 
 model ProductImage {
@@ -1013,5 +1018,50 @@ model CarrierWebhookEvent {
 
   @@index([status, createdAt])
   @@index([carrierCode])
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  userId    String?  // Nullable for guest users
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  query     String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model SearchQueryLog {
+  id           String           @id @default(uuid())
+  query        String
+  userId       String?
+  user         User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  resultsCount Int
+  createdAt    DateTime         @default(now())
+  clicks       SearchClickLog[]
+
+  @@index([query])
+  @@index([createdAt])
+}
+
+model SearchClickLog {
+  id               String         @id @default(uuid())
+  searchQueryLogId String
+  searchQueryLog   SearchQueryLog @relation(fields: [searchQueryLogId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  isConverted      Boolean        @default(false) // True if purchased in the same session
+  createdAt        DateTime       @default(now())
+
+  @@index([productId])
+  @@index([searchQueryLogId])
+  @@index([createdAt])
+}
+
+model SearchSynonym {
+  id        String   @id @default(uuid())
+  word      String   @unique
+  synonyms  String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 

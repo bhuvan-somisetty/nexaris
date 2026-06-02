@@ -22,6 +22,7 @@ import { RedisModule } from './redis/redis.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
+import { SearchModule } from './search/search.module';
 
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -55,6 +56,7 @@ import { ShippingModule } from './shipping/shipping.module';
     PromotionsModule,
     RecommendationsModule,
     ShippingModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [

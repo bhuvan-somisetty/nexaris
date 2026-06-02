@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import { Header } from '../../../components/Header';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api } from '../../../lib/api';
 import {
   Loader2,
@@ -19,7 +20,8 @@ import {
   Sparkles,
   ArrowUpRight,
   ChevronRight,
-  Info
+  Info,
+  Search
 } from 'lucide-react';
 
 export default function SellerAnalyticsPage() {
@@ -270,6 +272,14 @@ export default function SellerAnalyticsPage() {
                 <Download className="h-3.5 w-3.5" />
                 <span>Export CSV</span>
               </button>
+
+              <Link
+                href="/seller/analytics/search"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg text-xs font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-indigo-600 hover:to-purple-700 transition-all cursor-pointer animate-pulse"
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Search Performance</span>
+              </Link>
             </div>
           </div>
 
