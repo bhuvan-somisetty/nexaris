@@ -40,10 +40,22 @@ async function bootstrap() {
   // Set global API prefix
   app.setGlobalPrefix('api');
 
-  // Enable CORS for dynamic frontend origins
+  // Enable CORS for dynamic frontend origins.
+  // Allows: explicit FRONTEND_URL, localhost dev, and any *.vercel.app deployment.
   const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const allowedOrigins = [frontendUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'];
   app.enableCors({
-    origin: [frontendUrl, 'http://localhost:3000', 'http://127.0.0.1:3000'],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /\.vercel\.app$/.test(new URL(origin).hostname)
+      ) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
     credentials: true,
   });
 
