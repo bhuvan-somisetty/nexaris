@@ -185,3 +185,89 @@ export const logRecommendationEvent = async (
   } catch { /* silent */ }
 };
 
+// ─── Logistics & Shipping API ───────────────────────────────────────────────
+
+export interface ShipmentItem {
+  id: string;
+  orderItemId: string;
+  quantity: number;
+}
+
+export interface Shipment {
+  id: string;
+  orderId: string;
+  sellerId: string;
+  carrierCode: string;
+  awb: string | null;
+  shipmentId: string | null;
+  status: 'PENDING' | 'READY_TO_SHIP' | 'PICKUP_SCHEDULED' | 'IN_TRANSIT' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'CANCELLED';
+  edd: string | null;
+  labelUrl: string | null;
+  invoiceUrl: string | null;
+  pickupScheduledAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  items: ShipmentItem[];
+}
+
+export const createShipment = async (payload: {
+  orderId: string;
+  sellerId: string;
+  carrierCode: string;
+  orderItemIds: string[];
+}) => {
+  const res = await api.post<Shipment>('/shipping/shipments', payload);
+  return res.data;
+};
+
+export const generateAwb = async (shipmentId: string) => {
+  const res = await api.post<Shipment>(`/shipping/shipments/${shipmentId}/awb`);
+  return res.data;
+};
+
+export const printLabel = async (shipmentId: string) => {
+  const res = await api.get<{ labelUrl: string | null; mimeType: string }>(`/shipping/shipments/${shipmentId}/label`);
+  return res.data;
+};
+
+export const schedulePickup = async (shipmentId: string, pickupTime: string) => {
+  const res = await api.post<Shipment>(`/shipping/shipments/${shipmentId}/pickup`, { pickupTime });
+  return res.data;
+};
+
+export const getSellerShippingDashboard = async () => {
+  const res = await api.get<{
+    statusCounts: Record<string, number>;
+    shipments: Shipment[];
+  }>('/shipping/seller/dashboard');
+  return res.data;
+};
+
+export const getAdminShippingDashboard = async () => {
+  const res = await api.get<{
+    totalCount: number;
+    deliveredCount: number;
+    transitCount: number;
+    failedCount: number;
+    recentWebhooks: any[];
+    slaMetrics: { shiprocketDlvRatio: number; averageTransitHours: number };
+  }>('/shipping/admin/dashboard');
+  return res.data;
+};
+
+export const createReturn = async (payload: {
+  orderId: string;
+  items: Array<{ orderItemId: string; quantity: number }>;
+  reason: string;
+  additionalNotes?: string;
+}) => {
+  const res = await api.post('/shipping/returns', payload);
+  return res.data;
+};
+
+export const trackShipment = async (shipmentId: string) => {
+  const res = await api.get<any>(`/shipping/shipments/${shipmentId}/track`);
+  return res.data;
+};
+
+

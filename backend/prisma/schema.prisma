@@ -363,6 +363,8 @@ model Order {
   items             OrderItem[]
   timeline          OrderTimeline[]
   payment           Payment?
+  shipments         Shipment[]
+  returnRequests    ReturnRequest[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 
@@ -392,6 +394,8 @@ model OrderItem {
   
   // Seller-level fulfillment tracking
   fulfillmentStatus FulfillmentStatus @default(PENDING)
+  shipmentItems     ShipmentItem[]
+  returnItems       ReturnItem[]
 
   @@index([sellerId])
   @@index([sellerId, productId])
@@ -854,3 +858,160 @@ model RecommendationEvent {
   @@index([productId])
   @@index([createdAt])
 }
+
+// ─── Logistics & Shipping Integrations (Phase 12) ───────────────────────────
+
+enum ShipmentStatus {
+  PENDING
+  READY_TO_SHIP
+  PICKUP_SCHEDULED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  FAILED
+  CANCELLED
+}
+
+enum ReturnRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PICKUP_SCHEDULED
+  IN_TRANSIT
+  DELIVERED_TO_SELLER
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  MISSING_ITEM
+  DEFECTIVE
+  SIZE_ISSUE
+  QUALITY_ISSUE
+  NOT_AS_DESCRIBED
+  CHANGED_MIND
+  OTHER
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+model Shipment {
+  id                String                 @id @default(uuid())
+  orderId           String
+  order             Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sellerId          String
+  carrierCode       String                 // e.g. "SHIPROCKET", "DELHIVERY", "BLUEDART"
+  awb               String?                @unique
+  shipmentId        String?                @unique // Carrier's external shipment ID
+  status            ShipmentStatus         @default(PENDING)
+  edd               DateTime?              // Estimated Delivery Date
+  labelUrl          String?
+  invoiceUrl        String?
+  pickupScheduledAt DateTime?
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  carrierMetadata   Json?                  // Stores specific response payloads
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  items             ShipmentItem[]
+  trackingEvents    ShipmentTrackingEvent[]
+  labels            ShippingLabel[]
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([awb])
+}
+
+model ShipmentItem {
+  id           String    @id @default(uuid())
+  shipmentId   String
+  shipment     Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  orderItemId  String
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  quantity     Int
+
+  @@index([shipmentId])
+}
+
+model ShipmentTrackingEvent {
+  id          String   @id @default(uuid())
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  status      String   // Carrier status string
+  location    String?
+  description String
+  eventTime   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([shipmentId, eventTime])
+}
+
+model ShippingLabel {
+  id         String   @id @default(uuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  labelUrl   String?
+  labelData  String?  // Base64/ZPL data if raw
+  mimeType   String?  // application/pdf, image/png
+  createdAt  DateTime @default(now())
+
+  @@index([shipmentId])
+}
+
+model ReturnRequest {
+  id               String              @id @default(uuid())
+  orderId          String
+  order            Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customerId       String
+  sellerId         String
+  status           ReturnRequestStatus @default(PENDING)
+  reason           ReturnReason
+  additionalNotes  String?
+  refundAmount     Decimal
+  refundTxnId      String?
+  carrierCode      String?
+  returnAwb        String?             @unique
+  returnShipmentId String?             @unique
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  items            ReturnItem[]
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model ReturnItem {
+  id              String        @id @default(uuid())
+  returnRequestId String
+  returnRequest   ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItemId     String
+  orderItem       OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  quantity        Int
+
+  @@index([returnRequestId])
+}
+
+model CarrierWebhookEvent {
+  id           String        @id @default(uuid())
+  carrierCode  String
+  payload      Json
+  status       WebhookStatus @default(RECEIVED)
+  errorMessage String?
+  processedAt  DateTime?
+  createdAt    DateTime      @default(now())
+
+  @@index([status, createdAt])
+  @@index([carrierCode])
+}
+

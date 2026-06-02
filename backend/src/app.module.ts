@@ -25,6 +25,7 @@ import { RecommendationsModule } from './recommendations/recommendations.module'
 
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ShippingModule } from './shipping/shipping.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { APP_GUARD } from '@nestjs/core';
     AnalyticsModule,
     PromotionsModule,
     RecommendationsModule,
+    ShippingModule,
   ],
   controllers: [AppController],
   providers: [
