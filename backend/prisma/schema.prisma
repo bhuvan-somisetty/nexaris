@@ -213,6 +213,7 @@ model Product {
   slug         String             @unique
   description  String
   price        Decimal
+  originalPrice Decimal?          // MRP / list price; current `price` is the discounted selling price
   sku          String?            @unique
   status       ProductStatus      @default(DRAFT)
   createdAt    DateTime           @default(now())

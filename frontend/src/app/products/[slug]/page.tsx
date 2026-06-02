@@ -39,6 +39,7 @@ interface Product {
   slug: string;
   description: string;
   price: string;
+  originalPrice?: string | null;
   sku?: string | null;
   status: string;
   images: Array<{ id: string; url: string; altText?: string }>;
@@ -425,10 +426,15 @@ export default function ProductDetailPage() {
 
   // Determine pricing and stock messages
   const basePrice = parseFloat(product.price).toFixed(2);
-  const currentPrice = selectedVariant && selectedVariant.price 
-    ? parseFloat(selectedVariant.price).toFixed(2) 
+  const currentPrice = selectedVariant && selectedVariant.price
+    ? parseFloat(selectedVariant.price).toFixed(2)
     : basePrice;
-    
+
+  // MRP / discount applies to the base product price (not variant overrides)
+  const originalPriceVal = product.originalPrice ? parseFloat(product.originalPrice) : null;
+  const showMrp = !(selectedVariant && selectedVariant.price) && originalPriceVal !== null && originalPriceVal > Number(currentPrice);
+  const detailDiscountPct = showMrp ? Math.round((1 - Number(currentPrice) / originalPriceVal!) * 100) : 0;
+
   const currentSku = selectedVariant ? selectedVariant.sku : (product.sku || 'N/A');
   
   const currentInventory = selectedVariant ? selectedVariant.inventory : product.inventory;
@@ -510,7 +516,21 @@ export default function ProductDetailPage() {
               <div className="rounded-2xl border border-slate-900 bg-slate-900/10 p-6 flex items-center justify-between">
                 <div>
                   <span className="text-xs text-slate-500 font-mono uppercase block">Product Price</span>
-                  <span className="text-3xl font-extrabold text-indigo-400 font-mono">${currentPrice}</span>
+                  <div className="flex items-baseline gap-3 flex-wrap">
+                    <span className="text-3xl font-extrabold text-indigo-400 font-mono">
+                      ₹{Number(currentPrice).toLocaleString('en-IN')}
+                    </span>
+                    {showMrp && (
+                      <>
+                        <span className="text-base text-slate-500 line-through font-mono">
+                          ₹{originalPriceVal!.toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-lg">
+                          {detailDiscountPct}% OFF
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </div>
                 <div className="text-right">
                   <span className="text-xs text-slate-500 font-mono uppercase block">Model/SKU</span>

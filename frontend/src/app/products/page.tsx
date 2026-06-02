@@ -49,6 +49,7 @@ interface Product {
   slug: string;
   description: string;
   price: string;
+  originalPrice?: string | null;
   images: Array<{ url: string; altText?: string }>;
   category: { name: string };
   seller: { sellerProfile?: { storeName: string } };
@@ -831,6 +832,11 @@ function DiscoveryContent() {
                   {products.map((item) => {
                     const p = item.product;
                     const priceVal = parseFloat(p.price).toFixed(2);
+                    const origVal = p.originalPrice ? parseFloat(p.originalPrice) : null;
+                    const hasDiscount = origVal !== null && origVal > Number(priceVal);
+                    const discountPct = hasDiscount
+                      ? Math.round((1 - Number(priceVal) / origVal!) * 100)
+                      : 0;
                     const isOutOfStock = p.inventory && p.inventory.quantity === 0;
                     const isLowStock = p.inventory && p.inventory.quantity > 0 && p.inventory.quantity <= 10;
 
@@ -910,11 +916,25 @@ function DiscoveryContent() {
                             </p>
                           </div>
 
-                          <div className="flex items-center justify-between border-t border-slate-900/60 pt-3 mt-1">
-                            <span className="text-lg font-extrabold text-indigo-400 font-mono">
-                              ₹{Number(priceVal).toLocaleString()}
-                            </span>
-                            <span className="text-[10px] text-slate-550 font-medium">
+                          <div className="flex items-end justify-between border-t border-slate-900/60 pt-3 mt-1">
+                            <div className="flex flex-col">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-lg font-extrabold text-indigo-400 font-mono">
+                                  ₹{Number(priceVal).toLocaleString('en-IN')}
+                                </span>
+                                {hasDiscount && (
+                                  <span className="text-xs text-slate-500 line-through font-mono">
+                                    ₹{origVal!.toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </div>
+                              {hasDiscount && (
+                                <span className="text-[10px] font-bold text-emerald-400">
+                                  {discountPct}% OFF
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-550 font-medium text-right">
                               By {p.seller.sellerProfile?.storeName || 'Verified Seller'}
                             </span>
                           </div>

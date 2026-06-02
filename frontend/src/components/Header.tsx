@@ -90,21 +90,24 @@ export const Header: React.FC = () => {
                   </defs>
                   {/* Outer glowing hexagon outline */}
                   <path d="M50 8 L86 28 L86 72 L50 92 L14 72 L14 28 Z" fill="url(#logo-grad)" fillOpacity="0.08" stroke="url(#logo-grad)" strokeWidth="3" filter="url(#glow)" />
-                  {/* Inner abstract geometric "N" */}
+                  {/* Inner stylized shopping trolley */}
                   <path
-                    d="M34 68V32L50 50L66 32V68"
+                    d="M26 32 H34 L42 62 H68 L76 38 H36"
                     stroke="url(#logo-grad)"
-                    strokeWidth="8"
+                    strokeWidth="6"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                   <path
-                    d="M34 68V32L50 50L66 32V68"
+                    d="M26 32 H34 L42 62 H68 L76 38 H36"
                     stroke="#FFFFFF"
-                    strokeWidth="3.5"
+                    strokeWidth="2.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
+                  {/* Wheels */}
+                  <circle cx="45" cy="74" r="5" fill="url(#logo-grad)" stroke="#FFFFFF" strokeWidth="1.5" />
+                  <circle cx="65" cy="74" r="5" fill="url(#logo-grad)" stroke="#FFFFFF" strokeWidth="1.5" />
                 </svg>
               </div>
               <span className="bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-xl font-extrabold tracking-wider text-transparent uppercase transition-all duration-300 group-hover:text-white">
