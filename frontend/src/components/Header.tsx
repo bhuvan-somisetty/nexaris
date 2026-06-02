@@ -71,11 +71,43 @@ export const Header: React.FC = () => {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-600 font-bold text-white shadow-lg shadow-indigo-500/20">
-                N
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="relative flex h-10 w-10 items-center justify-center transition-transform duration-300 group-hover:scale-110">
+                <svg className="h-full w-full" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#6366F1" /> {/* Indigo-500 */}
+                      <stop offset="50%" stopColor="#A855F7" /> {/* Purple-500 */}
+                      <stop offset="100%" stopColor="#EC4899" /> {/* Pink-500 */}
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="4" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  {/* Outer glowing hexagon outline */}
+                  <path d="M50 8 L86 28 L86 72 L50 92 L14 72 L14 28 Z" fill="url(#logo-grad)" fillOpacity="0.08" stroke="url(#logo-grad)" strokeWidth="3" filter="url(#glow)" />
+                  {/* Inner abstract geometric "N" */}
+                  <path
+                    d="M34 68V32L50 50L66 32V68"
+                    stroke="url(#logo-grad)"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M34 68V32L50 50L66 32V68"
+                    stroke="#FFFFFF"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
-              <span className="bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-xl font-bold tracking-tight text-transparent">
+              <span className="bg-gradient-to-r from-white via-indigo-100 to-purple-200 bg-clip-text text-xl font-extrabold tracking-wider text-transparent uppercase transition-all duration-300 group-hover:text-white">
                 Nexaris
               </span>
             </Link>

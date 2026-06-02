@@ -2,12 +2,11 @@ import {
   Injectable,
   Logger,
   OnModuleDestroy,
-  OnModuleInit,
 } from '@nestjs/common';
 import Redis, { Cluster } from 'ioredis';
 
 @Injectable()
-export class RedisService implements OnModuleInit, OnModuleDestroy {
+export class RedisService implements OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
   private client: Redis | Cluster | null = null;
   private useFallback = false;
@@ -16,7 +15,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     { value: string; expiresAt: number }
   >();
 
-  onModuleInit() {
+  constructor() {
     try {
       this.logger.log('Initializing Redis client...');
 
