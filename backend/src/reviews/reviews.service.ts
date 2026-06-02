@@ -1,7 +1,22 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './reviews.dto';
-import { ReviewStatus, ModerationStatus, ReportStatus, NotificationType, Role } from '@prisma/client';
+import {
+  CreateReviewDto,
+  UpdateReviewDto,
+  ReportReviewDto,
+} from './reviews.dto';
+import {
+  ReviewStatus,
+  ModerationStatus,
+  ReportStatus,
+  NotificationType,
+  Role,
+} from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
@@ -23,7 +38,11 @@ export class ReviewsService {
     });
 
     if (existingReview) {
-      return { eligible: false, alreadyReviewed: true, reason: 'You have already reviewed this product.' };
+      return {
+        eligible: false,
+        alreadyReviewed: true,
+        reason: 'You have already reviewed this product.',
+      };
     }
 
     // 2. Check if user has a DELIVERED order containing this product
@@ -43,7 +62,8 @@ export class ReviewsService {
       return {
         eligible: false,
         alreadyReviewed: false,
-        reason: 'Only customers who purchased this product (with a DELIVERED order) can leave a review.',
+        reason:
+          'Only customers who purchased this product (with a DELIVERED order) can leave a review.',
       };
     }
 
@@ -197,7 +217,7 @@ export class ReviewsService {
       const r = g.rating as 1 | 2 | 3 | 4 | 5;
       const c = g._count.rating || 0;
       breakdown[r] = c;
-      sum += (g._sum.rating ? Number(g._sum.rating) : 0);
+      sum += g._sum.rating ? Number(g._sum.rating) : 0;
       count += c;
     });
 
@@ -222,7 +242,11 @@ export class ReviewsService {
     };
   }
 
-  async updateReview(reviewId: string, customerId: string, dto: UpdateReviewDto) {
+  async updateReview(
+    reviewId: string,
+    customerId: string,
+    dto: UpdateReviewDto,
+  ) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
     });
@@ -304,7 +328,11 @@ export class ReviewsService {
     }
   }
 
-  async reportReview(reviewId: string, customerId: string, dto: ReportReviewDto) {
+  async reportReview(
+    reviewId: string,
+    customerId: string,
+    dto: ReportReviewDto,
+  ) {
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId },
     });
@@ -359,7 +387,10 @@ export class ReviewsService {
   }
 
   // Get reviews of products owned by a specific seller
-  async getReviewsForSeller(sellerId: string, query: { page?: number; limit?: number }) {
+  async getReviewsForSeller(
+    sellerId: string,
+    query: { page?: number; limit?: number },
+  ) {
     const page = query.page || 1;
     const limit = query.limit || 10;
     const skip = (page - 1) * limit;

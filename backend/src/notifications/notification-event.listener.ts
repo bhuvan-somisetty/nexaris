@@ -18,11 +18,19 @@ export class NotificationEventListener {
   @OnEvent('notification.send')
   async handleSendNotification(payload: SendNotificationPayload) {
     const { userId, type, metadata } = payload;
-    this.logger.log(`Received notification.send event for type ${type} targeting user ${userId}`);
+    this.logger.log(
+      `Received notification.send event for type ${type} targeting user ${userId}`,
+    );
     try {
-      await this.notificationsService.sendNotification(userId, type, metadata || {});
+      await this.notificationsService.sendNotification(
+        userId,
+        type,
+        metadata || {},
+      );
     } catch (err: any) {
-      this.logger.error(`Error processing notification.send event for user ${userId}: ${err.message}`);
+      this.logger.error(
+        `Error processing notification.send event for user ${userId}: ${err.message}`,
+      );
     }
   }
 }

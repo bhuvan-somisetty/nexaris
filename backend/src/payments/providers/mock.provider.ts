@@ -38,7 +38,8 @@ export class MockPaymentProvider implements IPaymentProvider {
       return {
         success: false,
         providerPaymentId,
-        failureReason: 'Payment declined by mock provider (test failure simulation).',
+        failureReason:
+          'Payment declined by mock provider (test failure simulation).',
       };
     }
 

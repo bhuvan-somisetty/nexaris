@@ -12,7 +12,12 @@ export class AnalyticsService {
   ) {}
 
   // Helper to generate cache keys
-  private getCacheKey(sellerId: string, namespace: string, startDate?: string, endDate?: string): string {
+  private getCacheKey(
+    sellerId: string,
+    namespace: string,
+    startDate?: string,
+    endDate?: string,
+  ): string {
     return `analytics:${sellerId}:${namespace}:${startDate || 'all'}:${endDate || 'all'}`;
   }
 
@@ -23,23 +28,48 @@ export class AnalyticsService {
         data: { productId },
       });
     } catch (err: any) {
-      this.logger.error(`Failed to log product view for ${productId}: ${err.message}`);
+      this.logger.error(
+        `Failed to log product view for ${productId}: ${err.message}`,
+      );
     }
   }
 
   // ─── Seller Analytics Dashboard Overview ───
-  async getDashboardSummary(sellerId: string, startDateStr?: string, endDateStr?: string) {
-    const cacheKey = this.getCacheKey(sellerId, 'dashboard', startDateStr, endDateStr);
+  async getDashboardSummary(
+    sellerId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const cacheKey = this.getCacheKey(
+      sellerId,
+      'dashboard',
+      startDateStr,
+      endDateStr,
+    );
     const cachedData = await this.redis.get<any>(cacheKey);
     if (cachedData) return cachedData;
 
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = endDateStr ? new Date(endDateStr) : new Date();
 
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+    const weekStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 7,
+    );
+    const monthStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() - 30,
+    );
     const yearStart = new Date(now.getFullYear(), 0, 1);
 
     // 1. Revenue calculations using database-level raw queries for 100k+ scalability
@@ -76,7 +106,8 @@ export class AnalyticsService {
 
     const rangeRevenue = Number(customAgg[0]?.revenue || 0);
     const ordersCount = Number(customAgg[0]?.ordersCount || 0);
-    const averageOrderValue = ordersCount > 0 ? Number((rangeRevenue / ordersCount).toFixed(2)) : 0;
+    const averageOrderValue =
+      ordersCount > 0 ? Number((rangeRevenue / ordersCount).toFixed(2)) : 0;
 
     // 3. Refund Rate
     const refundsQuery: any = await this.prisma.$queryRaw`
@@ -98,7 +129,10 @@ export class AnalyticsService {
         AND o."createdAt" <= ${endDate}
     `;
     const totalOrdersCount = Number(totalOrdersCountAll[0]?.totalCount || 0);
-    const refundRate = totalOrdersCount > 0 ? Number(((refundedCount / totalOrdersCount) * 100).toFixed(2)) : 0;
+    const refundRate =
+      totalOrdersCount > 0
+        ? Number(((refundedCount / totalOrdersCount) * 100).toFixed(2))
+        : 0;
 
     // 4. Conversion Rate (Orders / Views)
     const viewsQuery: any = await this.prisma.$queryRaw`
@@ -110,7 +144,10 @@ export class AnalyticsService {
         AND pv."createdAt" <= ${endDate}
     `;
     const totalViews = Number(viewsQuery[0]?.viewsCount || 0);
-    const conversionRate = totalViews > 0 ? Number(((ordersCount / totalViews) * 100).toFixed(2)) : 0;
+    const conversionRate =
+      totalViews > 0
+        ? Number(((ordersCount / totalViews) * 100).toFixed(2))
+        : 0;
 
     const data = {
       revenue: {
@@ -133,12 +170,23 @@ export class AnalyticsService {
   }
 
   // ─── Product Analytics ───
-  async getProductAnalytics(sellerId: string, startDateStr?: string, endDateStr?: string) {
-    const cacheKey = this.getCacheKey(sellerId, 'products', startDateStr, endDateStr);
+  async getProductAnalytics(
+    sellerId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const cacheKey = this.getCacheKey(
+      sellerId,
+      'products',
+      startDateStr,
+      endDateStr,
+    );
     const cachedData = await this.redis.get<any>(cacheKey);
     if (cachedData) return cachedData;
 
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = endDateStr ? new Date(endDateStr) : new Date();
 
     // 1. Top Selling Products
@@ -194,10 +242,7 @@ export class AnalyticsService {
     const lowStockThreshold = 5;
     const inventoryItems = await this.prisma.inventory.findMany({
       where: {
-        OR: [
-          { product: { sellerId } },
-          { variant: { product: { sellerId } } },
-        ],
+        OR: [{ product: { sellerId } }, { variant: { product: { sellerId } } }],
       },
       include: {
         product: true,
@@ -214,25 +259,46 @@ export class AnalyticsService {
     for (const inv of inventoryItems) {
       const quantity = inv.quantity;
       const threshold = inv.lowStockThreshold || lowStockThreshold;
-      const productPrice = Number(inv.product?.price || inv.variant?.price || inv.variant?.product?.price || 0);
-      
+      const productPrice = Number(
+        inv.product?.price ||
+          inv.variant?.price ||
+          inv.variant?.product?.price ||
+          0,
+      );
+
       totalStockValue += quantity * productPrice;
 
-      const itemName = inv.product ? inv.product.name : `${inv.variant?.product?.name} (${inv.variant?.name})`;
+      const itemName = inv.product
+        ? inv.product.name
+        : `${inv.variant?.product?.name} (${inv.variant?.name})`;
       const itemId = inv.product ? inv.product.id : inv.variant?.productId;
       const sku = inv.product ? inv.product.sku : inv.variant?.sku;
 
       if (quantity === 0) {
         outOfStockAlerts.push({ id: itemId, name: itemName, sku, stock: 0 });
       } else if (quantity <= threshold) {
-        lowStockAlerts.push({ id: itemId, name: itemName, sku, stock: quantity, threshold });
+        lowStockAlerts.push({
+          id: itemId,
+          name: itemName,
+          sku,
+          stock: quantity,
+          threshold,
+        });
       }
     }
 
     const data = {
-      topSelling: topSelling.map(p => ({ ...p, quantity: Number(p.quantity), revenue: Number(p.revenue) })),
-      lowestPerforming: lowestPerforming.map(p => ({ ...p, quantity: Number(p.quantity), revenue: Number(p.revenue) })),
-      mostViewed: mostViewed.map(p => ({ ...p, views: Number(p.views) })),
+      topSelling: topSelling.map((p) => ({
+        ...p,
+        quantity: Number(p.quantity),
+        revenue: Number(p.revenue),
+      })),
+      lowestPerforming: lowestPerforming.map((p) => ({
+        ...p,
+        quantity: Number(p.quantity),
+        revenue: Number(p.revenue),
+      })),
+      mostViewed: mostViewed.map((p) => ({ ...p, views: Number(p.views) })),
       inventoryHealth: {
         totalStockValue,
         lowStockCount: lowStockAlerts.length,
@@ -249,12 +315,23 @@ export class AnalyticsService {
   }
 
   // ─── Customer Analytics ───
-  async getCustomerAnalytics(sellerId: string, startDateStr?: string, endDateStr?: string) {
-    const cacheKey = this.getCacheKey(sellerId, 'customers', startDateStr, endDateStr);
+  async getCustomerAnalytics(
+    sellerId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const cacheKey = this.getCacheKey(
+      sellerId,
+      'customers',
+      startDateStr,
+      endDateStr,
+    );
     const cachedData = await this.redis.get<any>(cacheKey);
     if (cachedData) return cachedData;
 
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = endDateStr ? new Date(endDateStr) : new Date();
 
     // 1. Fetch all orders containing this seller's products to map customer trends
@@ -285,7 +362,10 @@ export class AnalyticsService {
         customerFirstPurchase.set(cid, date);
       }
       customerOrderCounts.set(cid, (customerOrderCounts.get(cid) || 0) + 1);
-      customerLifetimesTotal.set(cid, (customerLifetimesTotal.get(cid) || 0) + total);
+      customerLifetimesTotal.set(
+        cid,
+        (customerLifetimesTotal.get(cid) || 0) + total,
+      );
     }
 
     // Classify customers inside the target date range
@@ -303,7 +383,11 @@ export class AnalyticsService {
 
     for (const cid of uniqueCustomersInRange) {
       const firstPurchase = customerFirstPurchase.get(cid);
-      if (firstPurchase && firstPurchase >= startDate && firstPurchase <= endDate) {
+      if (
+        firstPurchase &&
+        firstPurchase >= startDate &&
+        firstPurchase <= endDate
+      ) {
         newCustomers++;
       } else {
         returningCustomers++;
@@ -316,17 +400,25 @@ export class AnalyticsService {
       if (count > 1) repeatCustomers++;
     }
     const totalCustomersCount = customerOrderCounts.size;
-    const repeatPurchaseRate = totalCustomersCount > 0 ? Number(((repeatCustomers / totalCustomersCount) * 100).toFixed(2)) : 0;
+    const repeatPurchaseRate =
+      totalCustomersCount > 0
+        ? Number(((repeatCustomers / totalCustomersCount) * 100).toFixed(2))
+        : 0;
 
     // 3. Customer Lifetime Value (CLV)
     let totalLifetimeRevenue = 0;
     for (const value of customerLifetimesTotal.values()) {
       totalLifetimeRevenue += value;
     }
-    const customerLifetimeValue = totalCustomersCount > 0 ? Number((totalLifetimeRevenue / totalCustomersCount).toFixed(2)) : 0;
+    const customerLifetimeValue =
+      totalCustomersCount > 0
+        ? Number((totalLifetimeRevenue / totalCustomersCount).toFixed(2))
+        : 0;
 
     // 4. Customer Retention Rate (approx calculation from order logs over previous 60-day cohort)
-    const prevCohortStart = new Date(startDate.getTime() - 60 * 24 * 60 * 60 * 1000);
+    const prevCohortStart = new Date(
+      startDate.getTime() - 60 * 24 * 60 * 60 * 1000,
+    );
     const prevCohortEnd = startDate;
     const activeInPrevCohort = new Set<string>();
     const retainedInCurrent = new Set<string>();
@@ -343,9 +435,14 @@ export class AnalyticsService {
         }
       }
     }
-    const retentionRate = activeInPrevCohort.size > 0 
-      ? Number(((retainedInCurrent.size / activeInPrevCohort.size) * 100).toFixed(2)) 
-      : 100.0; // Fallback to 100% if no historical cohort is active
+    const retentionRate =
+      activeInPrevCohort.size > 0
+        ? Number(
+            ((retainedInCurrent.size / activeInPrevCohort.size) * 100).toFixed(
+              2,
+            ),
+          )
+        : 100.0; // Fallback to 100% if no historical cohort is active
 
     const data = {
       newCustomers,
@@ -363,7 +460,11 @@ export class AnalyticsService {
   // ─── Real-Time Analytics Widgets (Auto-Refresh Every 30s) ───
   async getRealTimeAnalytics(sellerId: string) {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
     const last24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
@@ -448,7 +549,8 @@ export class AnalyticsService {
 
     let revenueGrowth = 0;
     if (lastMonthRevenue > 0) {
-      revenueGrowth = ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
+      revenueGrowth =
+        ((currentMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100;
     } else if (currentMonthRevenue > 0) {
       revenueGrowth = 100; // default 100% score if starting new
     }
@@ -467,10 +569,11 @@ export class AnalyticsService {
     `;
     const completedCount = Number(completionRes[0]?.completedCount || 0);
     const totalCount = Number(completionRes[0]?.totalCount || 0);
-    const completionScore = totalCount > 0 ? (completedCount / totalCount) * 100 : 100;
+    const completionScore =
+      totalCount > 0 ? (completedCount / totalCount) * 100 : 100;
 
     // 3. Refund Rate Penalty (15%)
-    const refundScore = Math.max(0, 100 - (summary.refundRate * 5)); // Penalize high refunds heavily
+    const refundScore = Math.max(0, 100 - summary.refundRate * 5); // Penalize high refunds heavily
 
     // 4. Customer Rating Score (15%)
     const ratingRes = await this.prisma.sellerRating.aggregate({
@@ -481,19 +584,24 @@ export class AnalyticsService {
     const ratingScore = (avgRating / 5.0) * 100;
 
     // 5. Inventory Health Score (20%)
-    const totalProducts = await this.prisma.product.count({ where: { sellerId } });
-    const unhealthyProducts = products.inventoryHealth.lowStockCount + products.inventoryHealth.outOfStockCount;
-    const inventoryScore = totalProducts > 0 
-      ? ((totalProducts - unhealthyProducts) / totalProducts) * 100 
-      : 100;
+    const totalProducts = await this.prisma.product.count({
+      where: { sellerId },
+    });
+    const unhealthyProducts =
+      products.inventoryHealth.lowStockCount +
+      products.inventoryHealth.outOfStockCount;
+    const inventoryScore =
+      totalProducts > 0
+        ? ((totalProducts - unhealthyProducts) / totalProducts) * 100
+        : 100;
 
     // Weighted average
     const finalScore = Math.round(
-      (growthScore * 0.30) +
-      (completionScore * 0.20) +
-      (refundScore * 0.15) +
-      (ratingScore * 0.15) +
-      (inventoryScore * 0.20)
+      growthScore * 0.3 +
+        completionScore * 0.2 +
+        refundScore * 0.15 +
+        ratingScore * 0.15 +
+        inventoryScore * 0.2,
     );
 
     let category: 'Excellent' | 'Good' | 'Needs Attention' = 'Needs Attention';
@@ -514,8 +622,14 @@ export class AnalyticsService {
   }
 
   // ─── Trend Visualization Trends (Charts) ───
-  async getTrendsData(sellerId: string, startDateStr?: string, endDateStr?: string) {
-    const startDate = startDateStr ? new Date(startDateStr) : new Date(new Date().setDate(new Date().getDate() - 30));
+  async getTrendsData(
+    sellerId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ) {
+    const startDate = startDateStr
+      ? new Date(startDateStr)
+      : new Date(new Date().setDate(new Date().getDate() - 30));
     const endDate = endDateStr ? new Date(endDateStr) : new Date();
 
     // 1. Fetch daily details via native raw SQL to scale efficiently
@@ -548,7 +662,7 @@ export class AnalyticsService {
 
     while (current <= end) {
       const dateStr = current.toISOString().split('T')[0];
-      const match = dailyStats.find(d => {
+      const match = dailyStats.find((d) => {
         const dStr = new Date(d.day).toISOString().split('T')[0];
         return dStr === dateStr;
       });
@@ -566,8 +680,12 @@ export class AnalyticsService {
 
   // ─── Forecasting Widgets (7 & 30 Days Projections) ───
   async getForecasting(sellerId: string) {
-    const trends = await this.getTrendsData(sellerId, new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), new Date().toISOString());
-    
+    const trends = await this.getTrendsData(
+      sellerId,
+      new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+      new Date().toISOString(),
+    );
+
     // Fit a simple linear regression line: y = mx + c
     const linearForecast = (data: number[], daysOut: number) => {
       const n = data.length;
@@ -607,16 +725,24 @@ export class AnalyticsService {
     const inventoryItems = await this.prisma.inventory.findMany({
       where: { product: { sellerId } },
     });
-    const currentInventory = inventoryItems.reduce((acc, item) => acc + item.quantity, 0);
-    
+    const currentInventory = inventoryItems.reduce(
+      (acc, item) => acc + item.quantity,
+      0,
+    );
+
     // Calculate average daily rate of inventory sold from orders trend
-    const avgDailySales = trends.ordersTrend.reduce((a, b) => a + b, 0) / (trends.ordersTrend.length || 1);
-    
+    const avgDailySales =
+      trends.ordersTrend.reduce((a, b) => a + b, 0) /
+      (trends.ordersTrend.length || 1);
+
     const inventoryForecast7: number[] = [];
     const inventoryForecast30: number[] = [];
 
     for (let i = 1; i <= 30; i++) {
-      const projected = Math.max(0, currentInventory - Math.round(avgDailySales * i));
+      const projected = Math.max(
+        0,
+        currentInventory - Math.round(avgDailySales * i),
+      );
       if (i <= 7) inventoryForecast7.push(projected);
       inventoryForecast30.push(projected);
     }
@@ -625,8 +751,12 @@ export class AnalyticsService {
       revenue: {
         forecast7: revenueForecast7,
         forecast30: revenueForecast30,
-        totalForecast7: Number(revenueForecast7.reduce((a, b) => a + b, 0).toFixed(2)),
-        totalForecast30: Number(revenueForecast30.reduce((a, b) => a + b, 0).toFixed(2)),
+        totalForecast7: Number(
+          revenueForecast7.reduce((a, b) => a + b, 0).toFixed(2),
+        ),
+        totalForecast30: Number(
+          revenueForecast30.reduce((a, b) => a + b, 0).toFixed(2),
+        ),
       },
       sales: {
         forecast7: salesForecast7,
@@ -638,26 +768,50 @@ export class AnalyticsService {
         current: currentInventory,
         forecast7: inventoryForecast7,
         forecast30: inventoryForecast30,
-        daysOfStockRemaining: avgDailySales > 0 ? Math.round(currentInventory / avgDailySales) : 999, // default indicator if no sales
+        daysOfStockRemaining:
+          avgDailySales > 0
+            ? Math.round(currentInventory / avgDailySales)
+            : 999, // default indicator if no sales
       },
     };
   }
 
   // ─── Export Reports Stream Builder ───
-  async generateCSVReport(sellerId: string, startDateStr?: string, endDateStr?: string): Promise<string> {
-    const products = await this.getProductAnalytics(sellerId, startDateStr, endDateStr);
-    
+  async generateCSVReport(
+    sellerId: string,
+    startDateStr?: string,
+    endDateStr?: string,
+  ): Promise<string> {
+    const products = await this.getProductAnalytics(
+      sellerId,
+      startDateStr,
+      endDateStr,
+    );
+
     let csv = 'Product ID,Product Name,Quantity Sold,Revenue Generated,Views\n';
-    
-    const merged = new Map<string, { name: string; sold: number; rev: number; views: number }>();
-    
+
+    const merged = new Map<
+      string,
+      { name: string; sold: number; rev: number; views: number }
+    >();
+
     products.topSelling.forEach((p: any) => {
-      merged.set(p.id, { name: p.name, sold: p.quantity, rev: p.revenue, views: 0 });
+      merged.set(p.id, {
+        name: p.name,
+        sold: p.quantity,
+        rev: p.revenue,
+        views: 0,
+      });
     });
-    
+
     products.lowestPerforming.forEach((p: any) => {
       if (!merged.has(p.id)) {
-        merged.set(p.id, { name: p.name, sold: p.quantity, rev: p.revenue, views: 0 });
+        merged.set(p.id, {
+          name: p.name,
+          sold: p.quantity,
+          rev: p.revenue,
+          views: 0,
+        });
       }
     });
 

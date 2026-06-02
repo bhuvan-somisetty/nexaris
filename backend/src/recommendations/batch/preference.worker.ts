@@ -1,76 +1,33 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { PrismaService } from '../../prisma/prisma.service';
-import { RecommendationsService } from '../recommendations.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 /**
  * PreferenceWorker
- * Runs every 30 minutes to update UserPreferenceProfiles
- * for users who have had recent activity.
+ * Runs every 30 minutes to queue UserPreferenceProfiles updates
+ * for active users using BullMQ.
  */
 @Injectable()
 export class PreferenceWorker {
   private readonly logger = new Logger(PreferenceWorker.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly recommendationsService: RecommendationsService,
+    @InjectQueue('recommendation') private readonly recommendationQueue: Queue,
   ) {}
 
   @Cron(CronExpression.EVERY_30_MINUTES)
   async updatePreferences(): Promise<void> {
-    this.logger.log('Starting user preference profile update...');
-
+    this.logger.log(
+      'Cron triggered: scheduling user preference profile updates to BullMQ...',
+    );
     try {
-      const since = new Date(Date.now() - 30 * 60 * 1000); // Last 30 minutes
-
-      // Find users with recent activity
-      const recentActivityUsers = await this.prisma.userActivity.findMany({
-        where: {
-          userId: { not: null },
-          createdAt: { gte: since },
-        },
-        select: { userId: true },
-        distinct: ['userId'],
-      });
-
-      const userIds = recentActivityUsers
-        .map((u) => u.userId)
-        .filter(Boolean) as string[];
-
-      if (userIds.length === 0) {
-        this.logger.log(
-          'No users with recent activity; skipping preference update.',
-        );
-        return;
-      }
-
-      this.logger.log(
-        `Updating preference profiles for ${userIds.length} users...`,
+      await this.recommendationQueue.add('updatePreferences', {});
+      this.logger.log('Preference update job successfully enqueued.');
+    } catch (error: any) {
+      this.logger.error(
+        `Failed to enqueue preference update job: ${error.message}`,
       );
-
-      // Process in batches of 10 to avoid overloading the DB
-      const batchSize = 10;
-      for (let i = 0; i < userIds.length; i += batchSize) {
-        const batch = userIds.slice(i, i + batchSize);
-        await Promise.all(
-          batch.map((userId) =>
-            this.recommendationsService
-              .updateUserPreferenceProfile(userId)
-              .catch((err: unknown) => {
-                const msg = err instanceof Error ? err.message : String(err);
-                this.logger.warn(
-                  `Failed to update preferences for user ${userId}: ${msg}`,
-                );
-              }),
-          ),
-        );
-      }
-
-      // Evict personalized caches for affected users
-      this.logger.log('Preference update complete.');
-    } catch (error) {
-      this.logger.error('Preference update failed:', error);
     }
   }
 }

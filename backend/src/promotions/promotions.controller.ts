@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, UseGuards, Req, Query, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Query,
+  Param,
+} from '@nestjs/common';
 import { PromotionsService } from './promotions.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -21,7 +30,12 @@ export class PromotionsController {
   ) {
     // If request contains authorization header, extract user context, else log as guest view
     const userId = req.user?.id || null;
-    await this.promotionsService.trackUserActivity(userId, activityType, productId, metadata);
+    await this.promotionsService.trackUserActivity(
+      userId,
+      activityType,
+      productId,
+      metadata,
+    );
     return { success: true };
   }
 

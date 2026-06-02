@@ -4,7 +4,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 
+@Throttle({ checkout: { limit: 10, ttl: 60000 } })
 @Controller('checkout')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.CUSTOMER)
@@ -19,6 +21,10 @@ export class CheckoutController {
     @Body('couponCodes') couponCodes?: string[],
   ) {
     const userId = req.user.id;
-    return this.checkoutService.processCheckout(userId, { addressId, newAddress, couponCodes });
+    return this.checkoutService.processCheckout(userId, {
+      addressId,
+      newAddress,
+      couponCodes,
+    });
   }
 }

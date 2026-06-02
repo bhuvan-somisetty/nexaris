@@ -1,4 +1,9 @@
-import { Injectable, ForbiddenException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSellerRatingDto } from './seller-ratings.dto';
 
@@ -28,7 +33,11 @@ export class SellerRatingsService {
     });
 
     if (existingRating) {
-      return { eligible: false, alreadyRated: true, reason: 'You have already rated this seller.' };
+      return {
+        eligible: false,
+        alreadyRated: true,
+        reason: 'You have already rated this seller.',
+      };
     }
 
     // 3. Check if customer has a DELIVERED order containing items from this seller
@@ -48,7 +57,8 @@ export class SellerRatingsService {
       return {
         eligible: false,
         alreadyRated: false,
-        reason: 'Only customers who purchased items from this seller (with a DELIVERED order) can rate them.',
+        reason:
+          'Only customers who purchased items from this seller (with a DELIVERED order) can rate them.',
       };
     }
 
@@ -83,7 +93,10 @@ export class SellerRatingsService {
     });
   }
 
-  async getRatingsBySeller(sellerId: string, query: { page?: number; limit?: number }) {
+  async getRatingsBySeller(
+    sellerId: string,
+    query: { page?: number; limit?: number },
+  ) {
     const page = query.page || 1;
     const limit = query.limit || 5;
     const skip = (page - 1) * limit;

@@ -1,36 +1,82 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import Redis from 'ioredis';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
+import Redis, { Cluster } from 'ioredis';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RedisService.name);
-  private client: Redis | null = null;
+  private client: Redis | Cluster | null = null;
   private useFallback = false;
-  private readonly fallbackCache = new Map<string, { value: string; expiresAt: number }>();
+  private readonly fallbackCache = new Map<
+    string,
+    { value: string; expiresAt: number }
+  >();
 
   onModuleInit() {
-    const redisUrl = process.env.REDIS_URL;
-    const redisHost = process.env.REDIS_HOST || 'localhost';
-    const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
-
     try {
       this.logger.log('Initializing Redis client...');
-      if (redisUrl) {
-        this.client = new Redis(redisUrl, {
-          maxRetriesPerRequest: 1,
-          connectTimeout: 2000,
+
+      // 1. Cluster Mode
+      if (process.env.REDIS_CLUSTER_NODES) {
+        this.logger.log('Redis initialized in CLUSTER mode');
+        const nodes = process.env.REDIS_CLUSTER_NODES.split(',').map((node) => {
+          const [host, port] = node.split(':');
+          return { host, port: parseInt(port || '6379', 10) };
         });
-      } else {
+        this.client = new Redis.Cluster(nodes, {
+          redisOptions: {
+            maxRetriesPerRequest: null, // Set null for BullMQ compatibility
+            connectTimeout: 2000,
+          },
+        });
+      }
+      // 2. Sentinel Mode
+      else if (process.env.REDIS_SENTINELS) {
+        this.logger.log('Redis initialized in SENTINEL mode');
+        const sentinels = process.env.REDIS_SENTINELS.split(',').map(
+          (sentinel) => {
+            const [host, port] = sentinel.split(':');
+            return { host, port: parseInt(port || '26379', 10) };
+          },
+        );
+        const name = process.env.REDIS_SENTINEL_NAME || 'mymaster';
         this.client = new Redis({
-          host: redisHost,
-          port: redisPort,
-          maxRetriesPerRequest: 1,
+          sentinels,
+          name,
+          maxRetriesPerRequest: null, // Set null for BullMQ compatibility
           connectTimeout: 2000,
         });
       }
+      // 3. Standalone Mode
+      else {
+        this.logger.log('Redis initialized in STANDALONE mode');
+        const redisUrl = process.env.REDIS_URL;
+        const redisHost = process.env.REDIS_HOST || 'localhost';
+        const redisPort = parseInt(process.env.REDIS_PORT || '6379', 10);
+
+        if (redisUrl) {
+          this.client = new Redis(redisUrl, {
+            maxRetriesPerRequest: null, // Set null for BullMQ compatibility
+            connectTimeout: 2000,
+          });
+        } else {
+          this.client = new Redis({
+            host: redisHost,
+            port: redisPort,
+            maxRetriesPerRequest: null, // Set null for BullMQ compatibility
+            connectTimeout: 2000,
+          });
+        }
+      }
 
       this.client.on('error', (err) => {
-        this.logger.warn(`Redis connection error: ${err.message}. Switching to in-memory fallback.`);
+        this.logger.warn(
+          `Redis connection error: ${err.message}. Switching to in-memory fallback.`,
+        );
         this.useFallback = true;
       });
 
@@ -39,9 +85,15 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         this.useFallback = false;
       });
     } catch (error: any) {
-      this.logger.warn(`Failed to initialize Redis: ${error.message}. Using in-memory fallback.`);
+      this.logger.warn(
+        `Failed to initialize Redis: ${error.message}. Using in-memory fallback.`,
+      );
       this.useFallback = true;
     }
+  }
+
+  getClient(): Redis | Cluster | null {
+    return this.client;
   }
 
   async onModuleDestroy() {
@@ -60,7 +112,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       if (!data) return null;
       return JSON.parse(data) as T;
     } catch (err: any) {
-      this.logger.error(`Error reading from Redis for key ${key}: ${err.message}`);
+      this.logger.error(
+        `Error reading from Redis for key ${key}: ${err.message}`,
+      );
       return this.getFromFallback<T>(key);
     }
   }
@@ -75,7 +129,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       const serialized = JSON.stringify(value);
       await this.client.set(key, serialized, 'EX', ttlSeconds);
     } catch (err: any) {
-      this.logger.error(`Error writing to Redis for key ${key}: ${err.message}`);
+      this.logger.error(
+        `Error writing to Redis for key ${key}: ${err.message}`,
+      );
       this.setInFallback(key, value, ttlSeconds);
     }
   }
@@ -89,7 +145,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.client.del(key);
     } catch (err: any) {
-      this.logger.error(`Error deleting from Redis for key ${key}: ${err.message}`);
+      this.logger.error(
+        `Error deleting from Redis for key ${key}: ${err.message}`,
+      );
       this.fallbackCache.delete(key);
     }
   }

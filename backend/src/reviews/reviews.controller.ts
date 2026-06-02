@@ -1,6 +1,21 @@
-import { Controller, Get, Post, Put, Delete, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
-import { CreateReviewDto, UpdateReviewDto, ReportReviewDto } from './reviews.dto';
+import {
+  CreateReviewDto,
+  UpdateReviewDto,
+  ReportReviewDto,
+} from './reviews.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -33,7 +48,10 @@ export class ReviewsController {
   @Get('eligibility/:productId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER)
-  async checkEligibility(@Param('productId') productId: string, @Request() req: any) {
+  async checkEligibility(
+    @Param('productId') productId: string,
+    @Request() req: any,
+  ) {
     const customerId = req.user.id;
     return this.reviewsService.checkEligibility(productId, customerId);
   }

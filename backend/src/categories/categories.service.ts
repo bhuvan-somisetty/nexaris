@@ -1,4 +1,8 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -36,13 +40,18 @@ export class CategoriesService {
 
   async create(name: string, description?: string, parentId?: string) {
     // Generate slug from name
-    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)+/g, '');
 
     const existingCategory = await this.prisma.category.findUnique({
       where: { slug },
     });
     if (existingCategory) {
-      throw new ConflictException('Category with a similar name already exists');
+      throw new ConflictException(
+        'Category with a similar name already exists',
+      );
     }
 
     if (parentId) {
@@ -64,19 +73,29 @@ export class CategoriesService {
     });
   }
 
-  async update(id: string, name?: string, description?: string, parentId?: string) {
+  async update(
+    id: string,
+    name?: string,
+    description?: string,
+    parentId?: string,
+  ) {
     const category = await this.findOne(id);
 
     const data: any = {};
     if (name) {
       data.name = name;
-      data.slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-      
+      data.slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '');
+
       const existingCategory = await this.prisma.category.findFirst({
         where: { slug: data.slug, NOT: { id } },
       });
       if (existingCategory) {
-        throw new ConflictException('Category with a similar name already exists');
+        throw new ConflictException(
+          'Category with a similar name already exists',
+        );
       }
     }
 

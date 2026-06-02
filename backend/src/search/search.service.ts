@@ -19,7 +19,7 @@ export class SearchService {
 
     // Fetch all synonyms from the database
     const mappings = await this.prisma.searchSynonym.findMany();
-    
+
     // Sort mappings by word length descending so we match longer phrases first
     mappings.sort((a, b) => b.word.length - a.word.length);
 
@@ -29,7 +29,10 @@ export class SearchService {
     // Replace matching phrases with placeholders like __SYNONYM_0__
     for (let i = 0; i < mappings.length; i++) {
       const mapping = mappings[i];
-      const escapedWord = mapping.word.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const escapedWord = mapping.word.replace(
+        /[-\/\\^$*+?.()|[\]{}]/g,
+        '\\$&',
+      );
       const regex = new RegExp(`\\b${escapedWord}\\b`, 'g');
       if (regex.test(parsedQuery)) {
         // Construct the replacement expression
@@ -40,23 +43,28 @@ export class SearchService {
 
         const ftsReplacement = `((${wordFts}) | ${synonymsFts})`;
         replacements.push(ftsReplacement);
-        
-        parsedQuery = parsedQuery.replace(regex, `__SYNONYM_${replacements.length - 1}__`);
+
+        parsedQuery = parsedQuery.replace(
+          regex,
+          `__SYNONYM_${replacements.length - 1}__`,
+        );
       }
     }
 
     // Split query by spaces to get words
     const tokens = parsedQuery.split(/\s+/).filter(Boolean);
-    const ftsTokens = tokens.map((token) => {
-      const match = token.match(/^__SYNONYM_(\d+)__$/);
-      if (match) {
-        const index = parseInt(match[1], 10);
-        return replacements[index];
-      }
-      // Return plain escaped word
-      const escapedToken = token.replace(/[':&|!*()]/g, '');
-      return escapedToken ? escapedToken : null;
-    }).filter(Boolean);
+    const ftsTokens = tokens
+      .map((token) => {
+        const match = token.match(/^__SYNONYM_(\d+)__$/);
+        if (match) {
+          const index = parseInt(match[1], 10);
+          return replacements[index];
+        }
+        // Return plain escaped word
+        const escapedToken = token.replace(/[':&|!*()]/g, '');
+        return escapedToken ? escapedToken : null;
+      })
+      .filter(Boolean);
 
     if (ftsTokens.length === 0) return '';
     return ftsTokens.join(' & ');
@@ -186,7 +194,8 @@ export class SearchService {
     if (q) {
       // 1. Synonym expansion & Lexical FTS search
       const ftsQuery = await this.expandQueryWithSynonyms(q);
-      const ftsResult: any[] = await this.prisma.$queryRawUnsafe(`
+      const ftsResult: any[] = await this.prisma.$queryRawUnsafe(
+        `
         SELECT p.id
         FROM "Product" p
         LEFT JOIN "Category" c ON p."categoryId" = c.id
@@ -197,20 +206,25 @@ export class SearchService {
           OR to_tsvector('english', c.name) @@ to_tsquery('english', $1)
           OR to_tsvector('english', coalesce(sp."storeName", '')) @@ to_tsquery('english', $1)
         )
-      `, ftsQuery);
+      `,
+        ftsQuery,
+      );
 
       matchingProductIds = ftsResult.map((r) => r.id);
 
       // 2. Fuzzy fallback if 0 results
       if (matchingProductIds.length === 0) {
         isFuzzyFallback = true;
-        const fuzzyResult: any[] = await this.prisma.$queryRawUnsafe(`
+        const fuzzyResult: any[] = await this.prisma.$queryRawUnsafe(
+          `
           SELECT p.id, similarity(p.name, $1) AS sim
           FROM "Product" p
           WHERE p.status = 'PUBLISHED' AND similarity(p.name, $1) >= 0.2
           ORDER BY sim DESC
           LIMIT 100
-        `, q);
+        `,
+          q,
+        );
         matchingProductIds = fuzzyResult.map((r) => r.id);
       }
     } else {
@@ -235,7 +249,12 @@ export class SearchService {
       return {
         products: [],
         total: 0,
-        facets: { categories: [], brands: [], priceRange: { min: 0, max: 0 }, availabilityCount: 0 },
+        facets: {
+          categories: [],
+          brands: [],
+          priceRange: { min: 0, max: 0 },
+          availabilityCount: 0,
+        },
         page,
         limit,
         isFuzzyFallback,
@@ -283,14 +302,17 @@ export class SearchService {
     if (query.rating) {
       filteredCandidates = filteredCandidates.filter((p) => {
         if (p.reviews.length === 0) return false;
-        const avg = p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length;
+        const avg =
+          p.reviews.reduce((acc, r) => acc + r.rating, 0) / p.reviews.length;
         return avg >= (query.rating || 0);
       });
     }
 
     // Filter by Brand attribute
     if (query.brand) {
-      const selectedBrands = query.brand.split(',').map((b) => b.trim().toLowerCase());
+      const selectedBrands = query.brand
+        .split(',')
+        .map((b) => b.trim().toLowerCase());
       filteredCandidates = filteredCandidates.filter((p) =>
         p.attributes.some(
           (attr) =>
@@ -323,7 +345,10 @@ export class SearchService {
         const cartAddsCount = await this.prisma.userActivity.count({
           where: { productId: p.id, activityType: 'ADD_TO_CART' },
         });
-        const popularity = Math.min(1.0, (viewsCount + 3 * cartAddsCount) / 1000);
+        const popularity = Math.min(
+          1.0,
+          (viewsCount + 3 * cartAddsCount) / 1000,
+        );
 
         // 3. Sales Volume (orders in last 30 days)
         const salesCount = await this.prisma.orderItem.count({
@@ -333,14 +358,17 @@ export class SearchService {
 
         // 4. Reviews & Rating
         let avgRating = 0;
-        let reviewsCount = p.reviews.length;
+        const reviewsCount = p.reviews.length;
         if (reviewsCount > 0) {
-          avgRating = p.reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount;
+          avgRating =
+            p.reviews.reduce((acc, r) => acc + r.rating, 0) / reviewsCount;
         }
-        const reviewScore = (avgRating / 5.0) * (Math.log(1 + reviewsCount) / Math.log(50));
+        const reviewScore =
+          (avgRating / 5.0) * (Math.log(1 + reviewsCount) / Math.log(50));
 
         // 5. Freshness
-        const ageInDays = (Date.now() - new Date(p.createdAt).getTime()) / (24 * 3600 * 1000);
+        const ageInDays =
+          (Date.now() - new Date(p.createdAt).getTime()) / (24 * 3600 * 1000);
         const freshness = Math.exp(-0.05 * ageInDays);
 
         // 6. Stock status penalty mapping (from approved instructions)
@@ -355,7 +383,9 @@ export class SearchService {
         // 7. Personalization signals
         let personalization = 0;
         if (userPreference) {
-          const favCategories = (userPreference.preferredCategories as Record<string, number>) || {};
+          const favCategories =
+            (userPreference.preferredCategories as Record<string, number>) ||
+            {};
           if (favCategories[p.categoryId] !== undefined) {
             personalization = Math.min(1.0, favCategories[p.categoryId] / 10);
           }
@@ -398,12 +428,20 @@ export class SearchService {
       if (price > maxPrice) maxPrice = price;
       if (price < minPrice) minPrice = price;
 
-      const brandAttr = cand.attributes.find((a) => a.name.toLowerCase() === 'brand');
+      const brandAttr = cand.attributes.find(
+        (a) => a.name.toLowerCase() === 'brand',
+      );
       if (brandAttr) {
-        brandsMap.set(brandAttr.value, (brandsMap.get(brandAttr.value) || 0) + 1);
+        brandsMap.set(
+          brandAttr.value,
+          (brandsMap.get(brandAttr.value) || 0) + 1,
+        );
       }
 
-      categoriesMap.set(cand.category.name, (categoriesMap.get(cand.category.name) || 0) + 1);
+      categoriesMap.set(
+        cand.category.name,
+        (categoriesMap.get(cand.category.name) || 0) + 1,
+      );
 
       if (cand.inventory && cand.inventory.quantity > 0) {
         inStockCount++;
@@ -411,8 +449,14 @@ export class SearchService {
     });
 
     const facets = {
-      brands: Array.from(brandsMap.entries()).map(([name, count]) => ({ name, count })),
-      categories: Array.from(categoriesMap.entries()).map(([name, count]) => ({ name, count })),
+      brands: Array.from(brandsMap.entries()).map(([name, count]) => ({
+        name,
+        count,
+      })),
+      categories: Array.from(categoriesMap.entries()).map(([name, count]) => ({
+        name,
+        count,
+      })),
       priceRange: { min: minPrice === Infinity ? 0 : minPrice, max: maxPrice },
       availabilityCount: inStockCount,
     };
@@ -519,8 +563,10 @@ export class SearchService {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    const ctr = impressionsCount > 0 ? (totalClicks / impressionsCount) * 100 : 0;
-    const conversionRate = totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
+    const ctr =
+      impressionsCount > 0 ? (totalClicks / impressionsCount) * 100 : 0;
+    const conversionRate =
+      totalClicks > 0 ? (totalConversions / totalClicks) * 100 : 0;
 
     return {
       impressions: impressionsCount,
@@ -559,7 +605,9 @@ export class SearchService {
         where: { userId },
       });
       if (pref) {
-        const favCategories = Object.keys((pref.preferredCategories as Record<string, number>) || {});
+        const favCategories = Object.keys(
+          (pref.preferredCategories as Record<string, number>) || {},
+        );
         if (favCategories.length > 0) {
           recommendations = await this.prisma.product.findMany({
             where: {

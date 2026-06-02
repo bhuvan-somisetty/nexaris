@@ -40,8 +40,13 @@ export class PaymentsService {
     if (!order) throw new NotFoundException('Order not found.');
     if (order.customerId !== userId)
       throw new ForbiddenException('You do not own this order.');
-    if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.PAYMENT_FAILED)
-      throw new BadRequestException(`Order is not in a payable state (current: ${order.status}).`);
+    if (
+      order.status !== OrderStatus.PENDING &&
+      order.status !== OrderStatus.PAYMENT_FAILED
+    )
+      throw new BadRequestException(
+        `Order is not in a payable state (current: ${order.status}).`,
+      );
 
     // If payment already exists and is still pending (not expired), return it
     if (order.payment) {
@@ -60,7 +65,11 @@ export class PaymentsService {
     const idempotencyKey = uuidv4();
     const amount = parseFloat(order.total.toString());
 
-    const providerResult = await provider.createOrder(amount, 'INR', idempotencyKey);
+    const providerResult = await provider.createOrder(
+      amount,
+      'INR',
+      idempotencyKey,
+    );
 
     const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
 
@@ -123,10 +132,16 @@ export class PaymentsService {
 
     // Idempotency: already verified
     if (payment.status === PaymentStatus.SUCCESS) {
-      return { payment, message: 'Payment already verified (idempotent response).' };
+      return {
+        payment,
+        message: 'Payment already verified (idempotent response).',
+      };
     }
 
-    if (payment.status === PaymentStatus.PENDING && payment.expiresAt < new Date()) {
+    if (
+      payment.status === PaymentStatus.PENDING &&
+      payment.expiresAt < new Date()
+    ) {
       throw new BadRequestException(
         'Payment window has expired. Please retry the payment to get a new payment session.',
       );
@@ -172,7 +187,10 @@ export class PaymentsService {
         // 2. Update latest attempt
         await tx.paymentAttempt.updateMany({
           where: { paymentId: payment.id, status: PaymentStatus.PROCESSING },
-          data: { status: PaymentStatus.SUCCESS, providerRef: result.providerPaymentId },
+          data: {
+            status: PaymentStatus.SUCCESS,
+            providerRef: result.providerPaymentId,
+          },
         });
 
         // 3. Convert reservation → actual deduction
@@ -223,7 +241,10 @@ export class PaymentsService {
             action: 'PAYMENT_SUCCESS',
             entity: 'PAYMENT',
             entityId: payment.id,
-            newValue: { providerPaymentId: result.providerPaymentId, attemptNumber },
+            newValue: {
+              providerPaymentId: result.providerPaymentId,
+              attemptNumber,
+            },
           },
         });
       });
@@ -242,7 +263,10 @@ export class PaymentsService {
         // 1. Update attempt with failure reason
         await tx.paymentAttempt.updateMany({
           where: { paymentId: payment.id, status: PaymentStatus.PROCESSING },
-          data: { status: PaymentStatus.FAILED, failureReason: result.failureReason },
+          data: {
+            status: PaymentStatus.FAILED,
+            failureReason: result.failureReason,
+          },
         });
 
         // 2. Mark payment as failed
@@ -307,13 +331,19 @@ export class PaymentsService {
     if (payment.order.customerId !== userId)
       throw new ForbiddenException('You do not own this payment.');
     if (payment.status === PaymentStatus.SUCCESS)
-      throw new ConflictException('Payment has already been completed successfully.');
+      throw new ConflictException(
+        'Payment has already been completed successfully.',
+      );
 
     const provider = this.providerFactory.getProvider(payment.provider);
     const newIdempotencyKey = uuidv4();
     const amount = parseFloat(payment.amount.toString());
 
-    const providerResult = await provider.createOrder(amount, payment.currency, newIdempotencyKey);
+    const providerResult = await provider.createOrder(
+      amount,
+      payment.currency,
+      newIdempotencyKey,
+    );
     const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
 
     const updatedPayment = await this.prisma.payment.update({
@@ -360,11 +390,15 @@ export class PaymentsService {
 
     if (!payment) throw new NotFoundException('Payment not found.');
     if (payment.status !== PaymentStatus.SUCCESS)
-      throw new BadRequestException('Only successful payments can be refunded.');
+      throw new BadRequestException(
+        'Only successful payments can be refunded.',
+      );
 
     const refundAmount = amount ?? parseFloat(payment.amount.toString());
     if (refundAmount > parseFloat(payment.amount.toString()))
-      throw new BadRequestException('Refund amount cannot exceed original payment amount.');
+      throw new BadRequestException(
+        'Refund amount cannot exceed original payment amount.',
+      );
 
     const provider = this.providerFactory.getProvider(payment.provider);
     const result = await provider.initiateRefund(
@@ -417,7 +451,10 @@ export class PaymentsService {
             action: 'PAYMENT_REFUNDED',
             entity: 'PAYMENT',
             entityId: paymentId,
-            newValue: { refundAmount, providerRefundId: result.providerRefundId },
+            newValue: {
+              refundAmount,
+              providerRefundId: result.providerRefundId,
+            },
           },
         });
       }
@@ -453,10 +490,13 @@ export class PaymentsService {
       },
     });
 
-    if (!payment) throw new NotFoundException('No payment found for this order.');
+    if (!payment)
+      throw new NotFoundException('No payment found for this order.');
 
     if (role === Role.CUSTOMER && payment.order.customerId !== userId)
-      throw new ForbiddenException('You do not have permission to view this payment.');
+      throw new ForbiddenException(
+        'You do not have permission to view this payment.',
+      );
 
     return payment;
   }

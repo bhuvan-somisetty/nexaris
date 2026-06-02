@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Query, Param, UseGuards, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Param,
+  UseGuards,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { AnalyticsService } from './analytics.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -27,7 +36,11 @@ export class AnalyticsController {
     @Query('endDate') endDate?: string,
   ) {
     const sellerId = req.user.id;
-    return this.analyticsService.getDashboardSummary(sellerId, startDate, endDate);
+    return this.analyticsService.getDashboardSummary(
+      sellerId,
+      startDate,
+      endDate,
+    );
   }
 
   // 3. Product Analytics & Inventory alerts
@@ -40,7 +53,11 @@ export class AnalyticsController {
     @Query('endDate') endDate?: string,
   ) {
     const sellerId = req.user.id;
-    return this.analyticsService.getProductAnalytics(sellerId, startDate, endDate);
+    return this.analyticsService.getProductAnalytics(
+      sellerId,
+      startDate,
+      endDate,
+    );
   }
 
   // 4. Customer insights
@@ -53,7 +70,11 @@ export class AnalyticsController {
     @Query('endDate') endDate?: string,
   ) {
     const sellerId = req.user.id;
-    return this.analyticsService.getCustomerAnalytics(sellerId, startDate, endDate);
+    return this.analyticsService.getCustomerAnalytics(
+      sellerId,
+      startDate,
+      endDate,
+    );
   }
 
   // 5. Daily trends
@@ -107,10 +128,17 @@ export class AnalyticsController {
     @Query('endDate') endDate?: string,
   ) {
     const sellerId = req.user.id;
-    const csvContent = await this.analyticsService.generateCSVReport(sellerId, startDate, endDate);
-    
+    const csvContent = await this.analyticsService.generateCSVReport(
+      sellerId,
+      startDate,
+      endDate,
+    );
+
     res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename=nexaris_seller_report_${new Date().toISOString().split('T')[0]}.csv`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=nexaris_seller_report_${new Date().toISOString().split('T')[0]}.csv`,
+    );
     return res.status(200).send(csvContent);
   }
 }

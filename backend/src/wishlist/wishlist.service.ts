@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 import { ProductStatus } from '@prisma/client';
@@ -145,11 +149,18 @@ export class WishlistService {
     }
 
     if (availableStock <= 0) {
-      throw new BadRequestException('This product is out of stock and cannot be moved to your cart.');
+      throw new BadRequestException(
+        'This product is out of stock and cannot be moved to your cart.',
+      );
     }
 
     // Delegate addition to CartService
-    const cartResult = await this.cartService.addItem(userId, item.productId, item.variantId, 1);
+    const cartResult = await this.cartService.addItem(
+      userId,
+      item.productId,
+      item.variantId,
+      1,
+    );
 
     // Delete item from Wishlist on successful cart migration
     await this.prisma.wishlistItem.delete({

@@ -1,6 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, OrderStatus, FulfillmentStatus, PaymentStatus, NotificationType } from '@prisma/client';
+import {
+  Role,
+  OrderStatus,
+  FulfillmentStatus,
+  PaymentStatus,
+  NotificationType,
+} from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PromotionsService } from '../promotions/promotions.service';
 
@@ -101,13 +112,19 @@ export class OrdersService {
 
     // Verify Access Permissions
     if (role === Role.CUSTOMER && order.customerId !== userId) {
-      throw new ForbiddenException('You do not have permission to view this order.');
+      throw new ForbiddenException(
+        'You do not have permission to view this order.',
+      );
     }
 
     if (role === Role.SELLER) {
-      const hasSellerItems = order.items.some((item) => item.sellerId === userId);
+      const hasSellerItems = order.items.some(
+        (item) => item.sellerId === userId,
+      );
       if (!hasSellerItems) {
-        throw new ForbiddenException('You do not have permission to view this order.');
+        throw new ForbiddenException(
+          'You do not have permission to view this order.',
+        );
       }
       // Restrict seller to view only their own items
       order.items = order.items.filter((item) => item.sellerId === userId);
@@ -134,7 +151,9 @@ export class OrdersService {
 
     // Verify Ownership
     if (role === Role.SELLER && item.sellerId !== userId) {
-      throw new ForbiddenException('You do not have permission to update fulfillment for this item.');
+      throw new ForbiddenException(
+        'You do not have permission to update fulfillment for this item.',
+      );
     }
 
     // Perform status updates
@@ -153,10 +172,20 @@ export class OrdersService {
       let nextOrderStatus = item.order.status;
 
       const statuses = allItems.map((ai) => ai.fulfillmentStatus);
-      const allDelivered = statuses.every((s) => s === FulfillmentStatus.DELIVERED);
-      const allShipped = statuses.every((s) => s === FulfillmentStatus.SHIPPED || s === FulfillmentStatus.DELIVERED);
-      const allCancelled = statuses.every((s) => s === FulfillmentStatus.CANCELLED);
-      const anyProcessing = statuses.some((s) => s === FulfillmentStatus.PROCESSING || s === FulfillmentStatus.SHIPPED);
+      const allDelivered = statuses.every(
+        (s) => s === FulfillmentStatus.DELIVERED,
+      );
+      const allShipped = statuses.every(
+        (s) =>
+          s === FulfillmentStatus.SHIPPED || s === FulfillmentStatus.DELIVERED,
+      );
+      const allCancelled = statuses.every(
+        (s) => s === FulfillmentStatus.CANCELLED,
+      );
+      const anyProcessing = statuses.some(
+        (s) =>
+          s === FulfillmentStatus.PROCESSING || s === FulfillmentStatus.SHIPPED,
+      );
 
       if (allDelivered) {
         nextOrderStatus = OrderStatus.DELIVERED;
@@ -179,7 +208,9 @@ export class OrdersService {
           data: {
             orderId: item.orderId,
             status: nextOrderStatus,
-            notes: notes || `Order overall status transitioned to ${nextOrderStatus}.`,
+            notes:
+              notes ||
+              `Order overall status transitioned to ${nextOrderStatus}.`,
             actorId: userId,
           },
         });
@@ -205,24 +236,39 @@ export class OrdersService {
         updatedOrder.total.toString(),
       );
       if (updatedOrder.status === OrderStatus.DELIVERED) {
-        const points = Math.floor(parseFloat(updatedOrder.total.toString()) / 10);
+        const points = Math.floor(
+          parseFloat(updatedOrder.total.toString()) / 10,
+        );
         if (points > 0) {
-          await this.promotionsService.awardLoyaltyPoints(
-            updatedOrder.customerId,
-            points,
-            `Loyalty points for order: ${updatedOrder.id}`,
-          ).catch(err => console.error('Failed to award loyalty points:', err));
+          await this.promotionsService
+            .awardLoyaltyPoints(
+              updatedOrder.customerId,
+              points,
+              `Loyalty points for order: ${updatedOrder.id}`,
+            )
+            .catch((err) =>
+              console.error('Failed to award loyalty points:', err),
+            );
         }
-        await this.promotionsService.processReferralPurchaseRewards(
-          updatedOrder.customerId,
-          updatedOrder.id,
-        ).catch(err => console.error('Failed to process referral rewards:', err));
+        await this.promotionsService
+          .processReferralPurchaseRewards(
+            updatedOrder.customerId,
+            updatedOrder.id,
+          )
+          .catch((err) =>
+            console.error('Failed to process referral rewards:', err),
+          );
       }
     }
     return updatedOrder;
   }
 
-  async cancelOrder(userId: string, role: Role, orderId: string, notes?: string) {
+  async cancelOrder(
+    userId: string,
+    role: Role,
+    orderId: string,
+    notes?: string,
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -237,12 +283,20 @@ export class OrdersService {
       if (order.customerId !== userId) {
         throw new ForbiddenException('You cannot cancel this order.');
       }
-      const cancellableStatuses: OrderStatus[] = [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PAYMENT_FAILED];
+      const cancellableStatuses: OrderStatus[] = [
+        OrderStatus.PENDING,
+        OrderStatus.CONFIRMED,
+        OrderStatus.PAYMENT_FAILED,
+      ];
       if (!cancellableStatuses.includes(order.status)) {
-        throw new BadRequestException('Cannot cancel order after it has entered processing or shipping.');
+        throw new BadRequestException(
+          'Cannot cancel order after it has entered processing or shipping.',
+        );
       }
     } else if (role !== Role.ADMIN) {
-      throw new ForbiddenException('Only customers and admins can cancel orders.');
+      throw new ForbiddenException(
+        'Only customers and admins can cancel orders.',
+      );
     }
 
     if (order.status === OrderStatus.CANCELLED) {
@@ -263,7 +317,9 @@ export class OrdersService {
       for (const item of order.items) {
         if (item.productId) {
           if (item.variantId) {
-            const variantInv = await tx.inventory.findFirst({ where: { variantId: item.variantId } });
+            const variantInv = await tx.inventory.findFirst({
+              where: { variantId: item.variantId },
+            });
             if (variantInv) {
               if (isPendingPayment) {
                 // Release reservation only (quantity was never decremented)
@@ -280,7 +336,9 @@ export class OrdersService {
               }
             }
           } else {
-            const productInv = await tx.inventory.findFirst({ where: { productId: item.productId } });
+            const productInv = await tx.inventory.findFirst({
+              where: { productId: item.productId },
+            });
             if (productInv) {
               if (isPendingPayment) {
                 await tx.inventory.update({
@@ -322,7 +380,9 @@ export class OrdersService {
         data: {
           orderId,
           status: OrderStatus.CANCELLED,
-          notes: notes || `Order cancelled by ${role.toLowerCase()}. Stock returned to inventory.`,
+          notes:
+            notes ||
+            `Order cancelled by ${role.toLowerCase()}. Stock returned to inventory.`,
           actorId: userId,
         },
       });
@@ -352,7 +412,12 @@ export class OrdersService {
     return updatedOrder;
   }
 
-  async adminOverrideStatus(userId: string, orderId: string, status: OrderStatus, notes?: string) {
+  async adminOverrideStatus(
+    userId: string,
+    orderId: string,
+    status: OrderStatus,
+    notes?: string,
+  ) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
     });
@@ -368,20 +433,33 @@ export class OrdersService {
       });
 
       // If marked cancelled or refunded, optionally revert stock if order is not already cancelled
-      if ((status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) && order.status !== OrderStatus.CANCELLED) {
+      if (
+        (status === OrderStatus.CANCELLED || status === OrderStatus.REFUNDED) &&
+        order.status !== OrderStatus.CANCELLED
+      ) {
         // Rollback stock (similar to cancellation helper)
         const items = await tx.orderItem.findMany({ where: { orderId } });
         for (const item of items) {
           if (item.productId) {
             if (item.variantId) {
-              const variantInv = await tx.inventory.findFirst({ where: { variantId: item.variantId } });
+              const variantInv = await tx.inventory.findFirst({
+                where: { variantId: item.variantId },
+              });
               if (variantInv) {
-                await tx.inventory.update({ where: { id: variantInv.id }, data: { quantity: { increment: item.quantity } } });
+                await tx.inventory.update({
+                  where: { id: variantInv.id },
+                  data: { quantity: { increment: item.quantity } },
+                });
               }
             } else {
-              const productInv = await tx.inventory.findFirst({ where: { productId: item.productId } });
+              const productInv = await tx.inventory.findFirst({
+                where: { productId: item.productId },
+              });
               if (productInv) {
-                await tx.inventory.update({ where: { id: productInv.id }, data: { quantity: { increment: item.quantity } } });
+                await tx.inventory.update({
+                  where: { id: productInv.id },
+                  data: { quantity: { increment: item.quantity } },
+                });
               }
             }
           }
@@ -413,24 +491,39 @@ export class OrdersService {
         updatedOrder.total.toString(),
       );
       if (updatedOrder.status === OrderStatus.DELIVERED) {
-        const points = Math.floor(parseFloat(updatedOrder.total.toString()) / 10);
+        const points = Math.floor(
+          parseFloat(updatedOrder.total.toString()) / 10,
+        );
         if (points > 0) {
-          await this.promotionsService.awardLoyaltyPoints(
-            updatedOrder.customerId,
-            points,
-            `Loyalty points for order: ${updatedOrder.id}`,
-          ).catch(err => console.error('Failed to award loyalty points:', err));
+          await this.promotionsService
+            .awardLoyaltyPoints(
+              updatedOrder.customerId,
+              points,
+              `Loyalty points for order: ${updatedOrder.id}`,
+            )
+            .catch((err) =>
+              console.error('Failed to award loyalty points:', err),
+            );
         }
-        await this.promotionsService.processReferralPurchaseRewards(
-          updatedOrder.customerId,
-          updatedOrder.id,
-        ).catch(err => console.error('Failed to process referral rewards:', err));
+        await this.promotionsService
+          .processReferralPurchaseRewards(
+            updatedOrder.customerId,
+            updatedOrder.id,
+          )
+          .catch((err) =>
+            console.error('Failed to process referral rewards:', err),
+          );
       }
     }
     return updatedOrder;
   }
 
-  private emitOrderNotification(userId: string, orderId: string, status: OrderStatus, amount?: string) {
+  private emitOrderNotification(
+    userId: string,
+    orderId: string,
+    status: OrderStatus,
+    amount?: string,
+  ) {
     let type: NotificationType | null = null;
     switch (status) {
       case OrderStatus.CONFIRMED:

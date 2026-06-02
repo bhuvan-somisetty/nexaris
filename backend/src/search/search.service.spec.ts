@@ -71,23 +71,23 @@ describe('SearchService', () => {
           createdAt: new Date(),
           updatedAt: new Date(),
         },
-      ] as any);
+      ]);
 
       const result = await service.expandQueryWithSynonyms('iphone');
-      expect(result).toBe("((iphone) | (apple & phone))");
+      expect(result).toBe('((iphone) | (apple & phone))');
     });
 
     it('should return term unmodified if no synonyms found', async () => {
       jest.spyOn(prisma.searchSynonym, 'findMany').mockResolvedValue([]);
 
       const result = await service.expandQueryWithSynonyms('unknown');
-      expect(result).toBe("unknown");
+      expect(result).toBe('unknown');
     });
   });
 
   describe('getAutocompleteSuggestions', () => {
     it('should return cached suggestions if available', async () => {
-      jest.spyOn(redis, 'get').mockResolvedValue(['iPhone 15'] as any);
+      jest.spyOn(redis, 'get').mockResolvedValue(['iPhone 15']);
 
       const result = await service.getAutocompleteSuggestions('iph');
       expect(result).toEqual(['iPhone 15']);
@@ -96,14 +96,18 @@ describe('SearchService', () => {
 
     it('should fetch from database and cache on miss', async () => {
       jest.spyOn(redis, 'get').mockResolvedValue(null);
-      jest.spyOn(prisma.product, 'findMany').mockResolvedValue([
-        { name: 'iPhone 15 Pro' },
-      ] as any);
+      jest
+        .spyOn(prisma.product, 'findMany')
+        .mockResolvedValue([{ name: 'iPhone 15 Pro' }] as any);
 
       const result = await service.getAutocompleteSuggestions('iph');
       expect(result).toEqual(['iPhone 15 Pro']);
       expect(prisma.product.findMany).toHaveBeenCalled();
-      expect(redis.set).toHaveBeenCalledWith('search:suggest:iph', ['iPhone 15 Pro'], 3600);
+      expect(redis.set).toHaveBeenCalledWith(
+        'search:suggest:iph',
+        ['iPhone 15 Pro'],
+        3600,
+      );
     });
   });
 });

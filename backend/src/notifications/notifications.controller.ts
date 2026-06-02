@@ -95,10 +95,17 @@ export class NotificationsController {
     @Body('enabled') enabled: boolean,
   ) {
     if (!type || !channel || typeof enabled !== 'boolean') {
-      throw new BadRequestException('type, channel, and enabled (boolean) are required');
+      throw new BadRequestException(
+        'type, channel, and enabled (boolean) are required',
+      );
     }
     const userId = req.user.id;
-    return this.notificationsService.updatePreference(userId, type, channel, enabled);
+    return this.notificationsService.updatePreference(
+      userId,
+      type,
+      channel,
+      enabled,
+    );
   }
 
   // --- Admin Template Management ---

@@ -12,7 +12,9 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role, PaymentMethod } from '@prisma/client';
+import { Throttle } from '@nestjs/throttler';
 
+@Throttle({ checkout: { limit: 10, ttl: 60000 } })
 @Controller('payments')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class PaymentsController {
@@ -71,7 +73,11 @@ export class PaymentsController {
     @Request() req: any,
     @Param('orderId') orderId: string,
   ) {
-    return this.paymentsService.getPaymentByOrder(orderId, req.user.id, req.user.role);
+    return this.paymentsService.getPaymentByOrder(
+      orderId,
+      req.user.id,
+      req.user.role,
+    );
   }
 
   /** POST /api/payments/:paymentId/refund — Admin initiates a refund */
@@ -83,6 +89,11 @@ export class PaymentsController {
     @Body('amount') amount: number,
     @Body('reason') reason?: string,
   ) {
-    return this.paymentsService.initiateRefund(paymentId, req.user.id, amount, reason);
+    return this.paymentsService.initiateRefund(
+      paymentId,
+      req.user.id,
+      amount,
+      reason,
+    );
   }
 }

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -45,7 +55,13 @@ export class OrdersController {
   ) {
     const userId = req.user.id;
     const role = req.user.role;
-    return this.ordersService.updateFulfillmentStatus(userId, role, orderItemId, status, notes);
+    return this.ordersService.updateFulfillmentStatus(
+      userId,
+      role,
+      orderItemId,
+      status,
+      notes,
+    );
   }
 
   @Post(':id/cancel')

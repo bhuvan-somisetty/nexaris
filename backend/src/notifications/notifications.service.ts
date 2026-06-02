@@ -16,7 +16,10 @@ export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Interpolates template strings with metadata variables (e.g. {{orderId}} -> "12345")
-  private interpolate(template: string, variables: Record<string, any>): string {
+  private interpolate(
+    template: string,
+    variables: Record<string, any>,
+  ): string {
     return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
       if (variables[key] !== undefined) {
         return String(variables[key]);
@@ -26,7 +29,10 @@ export class NotificationsService {
   }
 
   // Define default notification preferences
-  private getDefaultPreference(type: NotificationType, channel: NotificationChannel): boolean {
+  private getDefaultPreference(
+    type: NotificationType,
+    channel: NotificationChannel,
+  ): boolean {
     // Orders, Payments, Refunds are enabled by default
     const isCoreTransactional = (
       [
@@ -43,9 +49,7 @@ export class NotificationsService {
 
     // Promotions, Marketing, Recommendations are disabled by default
     const isPromotional = (
-      [
-        NotificationType.PROMOTION,
-      ] as NotificationType[]
+      [NotificationType.PROMOTION] as NotificationType[]
     ).includes(type);
 
     if (isCoreTransactional) {
@@ -56,7 +60,10 @@ export class NotificationsService {
     }
 
     // Default other alerts/systems/reviews notifications to enabled for IN_APP and EMAIL, disabled for SMS and PUSH
-    if (channel === NotificationChannel.IN_APP || channel === NotificationChannel.EMAIL) {
+    if (
+      channel === NotificationChannel.IN_APP ||
+      channel === NotificationChannel.EMAIL
+    ) {
       return true;
     }
     return false;
@@ -148,7 +155,11 @@ export class NotificationsService {
   }
 
   // Archive or unarchive a notification
-  async archiveNotification(userId: string, id: string, archived: boolean): Promise<Notification> {
+  async archiveNotification(
+    userId: string,
+    id: string,
+    archived: boolean,
+  ): Promise<Notification> {
     return this.prisma.notification.update({
       where: { id, userId },
       data: { archived },
@@ -219,7 +230,9 @@ export class NotificationsService {
     type: NotificationType,
     metadata: Record<string, any> = {},
   ): Promise<Notification | null> {
-    this.logger.log(`Generating notification of type ${type} for user ${userId}`);
+    this.logger.log(
+      `Generating notification of type ${type} for user ${userId}`,
+    );
 
     // Retrieve user and their preferences
     const user = await this.prisma.user.findUnique({
@@ -249,7 +262,9 @@ export class NotificationsService {
     });
 
     if (templates.length === 0) {
-      this.logger.warn(`No enabled templates found for notification type ${type}`);
+      this.logger.warn(
+        `No enabled templates found for notification type ${type}`,
+      );
       return null;
     }
 
@@ -259,11 +274,15 @@ export class NotificationsService {
       const pref = prefs.find(
         (p) => p.type === type && p.channel === template.channel,
       );
-      return pref ? pref.enabled : this.getDefaultPreference(type, template.channel);
+      return pref
+        ? pref.enabled
+        : this.getDefaultPreference(type, template.channel);
     });
 
     if (enabledChannels.length === 0) {
-      this.logger.log(`All notification channels are disabled for user ${userId} and type ${type}`);
+      this.logger.log(
+        `All notification channels are disabled for user ${userId} and type ${type}`,
+      );
       return null;
     }
 
@@ -275,7 +294,10 @@ export class NotificationsService {
       enabledChannels[0];
 
     const finalTitle = this.interpolate(primaryTemplate.titleTemplate, context);
-    const finalMessage = this.interpolate(primaryTemplate.bodyTemplate, context);
+    const finalMessage = this.interpolate(
+      primaryTemplate.bodyTemplate,
+      context,
+    );
 
     // Create the central Notification record
     const notification = await this.prisma.notification.create({
@@ -303,19 +325,32 @@ export class NotificationsService {
           providerRef = 'IN_APP';
         } else if (template.channel === NotificationChannel.EMAIL) {
           // Send via Mock Email transmitter
-          providerRef = await this.mockSendEmail(user.email, channelTitle, channelBody);
+          providerRef = await this.mockSendEmail(
+            user.email,
+            channelTitle,
+            channelBody,
+          );
           status = NotificationStatus.DELIVERED;
         } else if (template.channel === NotificationChannel.SMS) {
           // Send via Mock SMS transmitter
           if (user.profile?.phone) {
-            providerRef = await this.mockSendSms(user.profile.phone, channelBody);
+            providerRef = await this.mockSendSms(
+              user.profile.phone,
+              channelBody,
+            );
             status = NotificationStatus.DELIVERED;
           } else {
-            throw new Error('User has no phone number configured for SMS delivery');
+            throw new Error(
+              'User has no phone number configured for SMS delivery',
+            );
           }
         } else if (template.channel === NotificationChannel.PUSH) {
           // Send via Mock Push transmitter
-          providerRef = await this.mockSendPush(userId, channelTitle, channelBody);
+          providerRef = await this.mockSendPush(
+            userId,
+            channelTitle,
+            channelBody,
+          );
           status = NotificationStatus.DELIVERED;
         }
 
@@ -348,16 +383,20 @@ export class NotificationsService {
   }
 
   // Mock Transmitters
-  private async mockSendEmail(email: string, title: string, body: string): Promise<string> {
+  private async mockSendEmail(
+    email: string,
+    title: string,
+    body: string,
+  ): Promise<string> {
     const providerRef = `mock-email-${Math.random().toString(36).substring(2, 9)}`;
     this.logger.log(
       `\n========================================\n` +
-      `[MOCK EMAIL TRANSMITTER]\n` +
-      `Recipient: ${email}\n` +
-      `Subject: ${title}\n` +
-      `Body: ${body}\n` +
-      `Ref ID: ${providerRef}\n` +
-      `========================================`,
+        `[MOCK EMAIL TRANSMITTER]\n` +
+        `Recipient: ${email}\n` +
+        `Subject: ${title}\n` +
+        `Body: ${body}\n` +
+        `Ref ID: ${providerRef}\n` +
+        `========================================`,
     );
     // Simulate brief network delay
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -368,26 +407,30 @@ export class NotificationsService {
     const providerRef = `mock-sms-${Math.random().toString(36).substring(2, 9)}`;
     this.logger.log(
       `\n========================================\n` +
-      `[MOCK SMS TRANSMITTER]\n` +
-      `Phone: ${phone}\n` +
-      `Message: ${body}\n` +
-      `Ref ID: ${providerRef}\n` +
-      `========================================`,
+        `[MOCK SMS TRANSMITTER]\n` +
+        `Phone: ${phone}\n` +
+        `Message: ${body}\n` +
+        `Ref ID: ${providerRef}\n` +
+        `========================================`,
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     return providerRef;
   }
 
-  private async mockSendPush(userId: string, title: string, body: string): Promise<string> {
+  private async mockSendPush(
+    userId: string,
+    title: string,
+    body: string,
+  ): Promise<string> {
     const providerRef = `mock-push-${Math.random().toString(36).substring(2, 9)}`;
     this.logger.log(
       `\n========================================\n` +
-      `[MOCK PUSH TRANSMITTER]\n` +
-      `User ID: ${userId}\n` +
-      `Title: ${title}\n` +
-      `Body: ${body}\n` +
-      `Ref ID: ${providerRef}\n` +
-      `========================================`,
+        `[MOCK PUSH TRANSMITTER]\n` +
+        `User ID: ${userId}\n` +
+        `Title: ${title}\n` +
+        `Body: ${body}\n` +
+        `Ref ID: ${providerRef}\n` +
+        `========================================`,
     );
     await new Promise((resolve) => setTimeout(resolve, 50));
     return providerRef;

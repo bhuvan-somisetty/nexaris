@@ -1,4 +1,12 @@
-import { Controller, Get, Patch, Param, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { InventoryService } from './inventory.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -25,6 +33,12 @@ export class InventoryController {
   ) {
     const userId = req.user.id;
     const userRole = req.user.role;
-    return this.inventoryService.update(id, userId, userRole, quantity, lowStockThreshold);
+    return this.inventoryService.update(
+      id,
+      userId,
+      userRole,
+      quantity,
+      lowStockThreshold,
+    );
   }
 }

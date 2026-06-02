@@ -29,23 +29,34 @@ export class WebhooksController {
     @Body('paymentMethod') paymentMethod?: PaymentMethod,
   ) {
     if (!paymentId || !event || !userId) {
-      return { received: false, error: 'Missing required fields: paymentId, event, userId' };
+      return {
+        received: false,
+        error: 'Missing required fields: paymentId, event, userId',
+      };
     }
 
     if (event === 'payment.captured') {
-      const result = await this.paymentsService.verifyPayment(paymentId, userId, {
-        providerPaymentId: `mock_webhook_pay_${Date.now()}`,
-        paymentMethod: paymentMethod || PaymentMethod.MOCK,
-        simulateFailure: false,
-      });
+      const result = await this.paymentsService.verifyPayment(
+        paymentId,
+        userId,
+        {
+          providerPaymentId: `mock_webhook_pay_${Date.now()}`,
+          paymentMethod: paymentMethod || PaymentMethod.MOCK,
+          simulateFailure: false,
+        },
+      );
       return { received: true, event, result };
     }
 
     if (event === 'payment.failed') {
-      const result = await this.paymentsService.verifyPayment(paymentId, userId, {
-        providerPaymentId: 'mock_fail',
-        simulateFailure: true,
-      });
+      const result = await this.paymentsService.verifyPayment(
+        paymentId,
+        userId,
+        {
+          providerPaymentId: 'mock_fail',
+          simulateFailure: true,
+        },
+      );
       return { received: true, event, result };
     }
 
@@ -72,6 +83,9 @@ export class WebhooksController {
     // const isValid = verifyRazorpaySignature(body, signature);
     // if (!isValid) throw new UnauthorizedException('Invalid Razorpay signature');
 
-    return { received: true, note: 'Razorpay webhook integration pending Phase 6+.' };
+    return {
+      received: true,
+      note: 'Razorpay webhook integration pending Phase 6+.',
+    };
   }
 }

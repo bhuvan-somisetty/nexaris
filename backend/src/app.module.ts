@@ -23,21 +23,56 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { PromotionsModule } from './promotions/promotions.module';
 import { RecommendationsModule } from './recommendations/recommendations.module';
 import { SearchModule } from './search/search.module';
+import { QueueModule } from './queue/queue.module';
+import { MetricsModule } from './metrics/metrics.module';
 
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_FILTER } from '@nestjs/core';
 import { ShippingModule } from './shipping/shipping.module';
+import { LoggerModule } from 'nestjs-pino';
+import { SentryExceptionFilter } from './common/filters/sentry-exception.filter';
 
 @Module({
   imports: [
+    LoggerModule.forRoot({
+      pinoHttp: {
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? {
+                target: 'pino-pretty',
+                options: {
+                  singleLine: true,
+                  colorize: true,
+                },
+              }
+            : undefined,
+        level: process.env.LOG_LEVEL || 'info',
+        autoLogging: false, // Avoid excessive verbose request logs in dev/test
+      },
+    }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
-    ThrottlerModule.forRoot([{
-      ttl: process.env.RATE_LIMIT_TTL ? parseInt(process.env.RATE_LIMIT_TTL, 10) : 60000,
-      limit: process.env.RATE_LIMIT_MAX ? parseInt(process.env.RATE_LIMIT_MAX, 10) : 100,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'general',
+        ttl: 60000,
+        limit: 120,
+      },
+      {
+        name: 'auth',
+        ttl: 60000,
+        limit: 5,
+      },
+      {
+        name: 'checkout',
+        ttl: 60000,
+        limit: 10,
+      },
+    ]),
     PrismaModule,
     RedisModule,
+    QueueModule,
+    MetricsModule,
     UsersModule,
     AuthModule,
     CategoriesModule,
@@ -64,6 +99,10 @@ import { ShippingModule } from './shipping/shipping.module';
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_FILTER,
+      useClass: SentryExceptionFilter,
     },
   ],
 })

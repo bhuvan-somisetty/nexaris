@@ -1,6 +1,11 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { DiscountType, LoyaltyTier, UserActivityType, CampaignType } from '@prisma/client';
+import {
+  DiscountType,
+  LoyaltyTier,
+  UserActivityType,
+  CampaignType,
+} from '@prisma/client';
 
 @Injectable()
 export class PromotionsService {
@@ -20,10 +25,10 @@ export class PromotionsService {
       include: { profile: true },
     });
 
-    const namePart = user?.profile?.firstName 
-      ? user.profile.firstName.toUpperCase().substring(0, 4) 
+    const namePart = user?.profile?.firstName
+      ? user.profile.firstName.toUpperCase().substring(0, 4)
       : 'NEX';
-    
+
     const randomPart = Math.floor(1000 + Math.random() * 9000);
     const code = `REF-${namePart}-${randomPart}`;
 
@@ -37,7 +42,10 @@ export class PromotionsService {
     return created.code;
   }
 
-  async trackReferralRegistration(refereeId: string, referralCodeStr: string): Promise<void> {
+  async trackReferralRegistration(
+    refereeId: string,
+    referralCodeStr: string,
+  ): Promise<void> {
     const codeRecord = await this.prisma.referralCode.findUnique({
       where: { code: referralCodeStr },
     });
@@ -54,14 +62,19 @@ export class PromotionsService {
           rewardClaimed: false,
         },
       });
-      this.logger.log(`User ${refereeId} successfully referred by ${codeRecord.userId}`);
+      this.logger.log(
+        `User ${refereeId} successfully referred by ${codeRecord.userId}`,
+      );
     } catch (err: any) {
       this.logger.error(`Referral tracking failed: ${err.message}`);
     }
   }
 
   // Award referral bonuses on referee's first purchase
-  async processReferralPurchaseRewards(refereeId: string, orderId: string): Promise<void> {
+  async processReferralPurchaseRewards(
+    refereeId: string,
+    orderId: string,
+  ): Promise<void> {
     const referral = await this.prisma.referral.findUnique({
       where: { refereeId },
     });
@@ -69,15 +82,26 @@ export class PromotionsService {
 
     // Verify first purchase
     const ordersCount = await this.prisma.order.count({
-      where: { customerId: refereeId, status: { notIn: ['CANCELLED', 'PAYMENT_FAILED'] } },
+      where: {
+        customerId: refereeId,
+        status: { notIn: ['CANCELLED', 'PAYMENT_FAILED'] },
+      },
     });
     if (ordersCount > 1) return; // not first purchase
 
     // Reward referrer: e.g. 500 Loyalty points
-    await this.awardLoyaltyPoints(referral.referrerId, 500, `Referral reward for inviting user id: ${refereeId}`);
-    
+    await this.awardLoyaltyPoints(
+      referral.referrerId,
+      500,
+      `Referral reward for inviting user id: ${refereeId}`,
+    );
+
     // Reward referee: e.g. 200 Loyalty points
-    await this.awardLoyaltyPoints(refereeId, 200, `First purchase referral sign-up bonus`);
+    await this.awardLoyaltyPoints(
+      refereeId,
+      200,
+      `First purchase referral sign-up bonus`,
+    );
 
     await this.prisma.referral.update({
       where: { id: referral.id },
@@ -109,9 +133,13 @@ export class PromotionsService {
     });
   }
 
-  async awardLoyaltyPoints(userId: string, points: number, reason: string): Promise<void> {
+  async awardLoyaltyPoints(
+    userId: string,
+    points: number,
+    reason: string,
+  ): Promise<void> {
     if (points === 0) return;
-    
+
     await this.prisma.$transaction(async (tx) => {
       let profile = await tx.loyaltyProfile.findUnique({ where: { userId } });
       if (!profile) {
@@ -121,7 +149,7 @@ export class PromotionsService {
       }
 
       const newPoints = Math.max(0, profile.points + points);
-      
+
       // Calculate dynamic tier: Bronze (<1000), Silver (1000-2499), Gold (2500-4999), Platinum (5000+)
       let tier: LoyaltyTier = LoyaltyTier.BRONZE;
       if (newPoints >= 5000) tier = LoyaltyTier.PLATINUM;
@@ -144,7 +172,11 @@ export class PromotionsService {
   }
 
   // ─── Coupon Stacking Validation Rules ───
-  async validateDiscount(userId: string, couponCodes: string[], subtotal: number) {
+  async validateDiscount(
+    userId: string,
+    couponCodes: string[],
+    subtotal: number,
+  ) {
     if (couponCodes.length === 0) {
       return { discountAmount: 0, freeShipping: false, couponsApplied: [] };
     }
@@ -159,12 +191,18 @@ export class PromotionsService {
       },
     });
 
-    const discountCoupons = coupons.filter(c => c.discountType !== DiscountType.FREE_SHIPPING);
-    const shippingCoupons = coupons.filter(c => c.discountType === DiscountType.FREE_SHIPPING);
+    const discountCoupons = coupons.filter(
+      (c) => c.discountType !== DiscountType.FREE_SHIPPING,
+    );
+    const shippingCoupons = coupons.filter(
+      (c) => c.discountType === DiscountType.FREE_SHIPPING,
+    );
 
     // Enforce coupon stacking limits
     if (discountCoupons.length > 1) {
-      throw new BadRequestException('Stacking violation: Only one discount coupon is allowed per order.');
+      throw new BadRequestException(
+        'Stacking violation: Only one discount coupon is allowed per order.',
+      );
     }
 
     let discountAmount = 0;
@@ -174,14 +212,18 @@ export class PromotionsService {
     // Process single standard discount coupon
     if (discountCoupons.length > 0) {
       const promo = discountCoupons[0];
-      
+
       if (subtotal < Number(promo.minOrderValue)) {
-        throw new BadRequestException(`Order subtotal must be at least ₹${promo.minOrderValue} to use coupon: ${promo.code}`);
+        throw new BadRequestException(
+          `Order subtotal must be at least ₹${promo.minOrderValue} to use coupon: ${promo.code}`,
+        );
       }
 
       // Check usage counts
       if (promo.usageLimit !== null && promo.usedCount >= promo.usageLimit) {
-        throw new BadRequestException(`Coupon ${promo.code} usage limit exceeded.`);
+        throw new BadRequestException(
+          `Coupon ${promo.code} usage limit exceeded.`,
+        );
       }
 
       // Check per-user limit
@@ -189,14 +231,19 @@ export class PromotionsService {
         where: { couponId: promo.id, customerId: userId },
       });
       if (userRedemptions >= promo.perUserLimit) {
-        throw new BadRequestException(`You have reached the redemption limit for coupon: ${promo.code}`);
+        throw new BadRequestException(
+          `You have reached the redemption limit for coupon: ${promo.code}`,
+        );
       }
 
       // Calculate deduction
       if (promo.discountType === DiscountType.PERCENTAGE) {
         let valueDeducted = (subtotal * Number(promo.value)) / 100;
         if (promo.maxDiscountAmount !== null) {
-          valueDeducted = Math.min(valueDeducted, Number(promo.maxDiscountAmount));
+          valueDeducted = Math.min(
+            valueDeducted,
+            Number(promo.maxDiscountAmount),
+          );
         }
         discountAmount += valueDeducted;
       } else if (promo.discountType === DiscountType.FIXED_AMOUNT) {
@@ -239,13 +286,24 @@ export class PromotionsService {
     });
 
     if (result.count === 0) {
-      throw new BadRequestException(`Failed to apply coupon: ${code}. Limit reached or expired.`);
+      throw new BadRequestException(
+        `Failed to apply coupon: ${code}. Limit reached or expired.`,
+      );
     }
   }
 
   // ─── A/B Testing Campaigns ───
   async createABTestCampaign(sellerId: string, campaignData: any) {
-    const { name, description, categoryId, discountType, valueA, valueB, startDate, endDate } = campaignData;
+    const {
+      name,
+      description,
+      categoryId,
+      discountType,
+      valueA,
+      valueB,
+      startDate,
+      endDate,
+    } = campaignData;
 
     // Create Parent AB Campaign anchor
     const parent = await this.prisma.campaign.create({
@@ -306,7 +364,11 @@ export class PromotionsService {
     };
   }
 
-  async trackCampaignAction(campaignId: string, action: 'click' | 'conversion' | 'revenue', value = 0): Promise<void> {
+  async trackCampaignAction(
+    campaignId: string,
+    action: 'click' | 'conversion' | 'revenue',
+    value = 0,
+  ): Promise<void> {
     try {
       if (action === 'click') {
         await this.prisma.campaign.update({
@@ -342,7 +404,7 @@ export class PromotionsService {
           userId,
           activityType,
           productId,
-          metadata: metadata ? (metadata as any) : undefined,
+          metadata: metadata ? metadata : undefined,
         },
       });
     } catch (err: any) {
@@ -374,7 +436,10 @@ export class PromotionsService {
       totalRevenue += Number(c.revenue);
     }
 
-    const conversionRate = totalClicks > 0 ? Number(((totalConversions / totalClicks) * 100).toFixed(2)) : 0;
+    const conversionRate =
+      totalClicks > 0
+        ? Number(((totalConversions / totalClicks) * 100).toFixed(2))
+        : 0;
 
     return {
       campaigns,

@@ -1,6 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus, PaymentStatus, PaymentProvider, NotificationType, DiscountType, UserActivityType } from '@prisma/client';
+import {
+  OrderStatus,
+  PaymentStatus,
+  PaymentProvider,
+  NotificationType,
+  DiscountType,
+  UserActivityType,
+} from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { v4 as uuidv4 } from 'uuid';
 import { PromotionsService } from '../promotions/promotions.service';
@@ -15,7 +26,10 @@ export class CheckoutService {
     private promotionsService: PromotionsService,
   ) {}
 
-  async processCheckout(userId: string, data: { addressId?: string; newAddress?: any; couponCodes?: string[] }) {
+  async processCheckout(
+    userId: string,
+    data: { addressId?: string; newAddress?: any; couponCodes?: string[] },
+  ) {
     // 1. Fetch Cart
     const cart = await this.prisma.cart.findUnique({
       where: { userId },
@@ -51,7 +65,9 @@ export class CheckoutService {
       const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
 
       if (available <= 0) {
-        throw new BadRequestException(`Product "${item.product.name}" is out of stock.`);
+        throw new BadRequestException(
+          `Product "${item.product.name}" is out of stock.`,
+        );
       }
       if (available < item.quantity) {
         throw new BadRequestException(
@@ -73,8 +89,18 @@ export class CheckoutService {
       addressData = { ...savedAddress };
     } else if (data.newAddress) {
       const addr = data.newAddress;
-      if (!addr.firstName || !addr.lastName || !addr.street1 || !addr.city || !addr.state || !addr.postalCode || !addr.country) {
-        throw new BadRequestException('Invalid address payload. Missing required fields.');
+      if (
+        !addr.firstName ||
+        !addr.lastName ||
+        !addr.street1 ||
+        !addr.city ||
+        !addr.state ||
+        !addr.postalCode ||
+        !addr.country
+      ) {
+        throw new BadRequestException(
+          'Invalid address payload. Missing required fields.',
+        );
       }
       const savedAddr = await this.prisma.address.create({
         data: {
@@ -92,7 +118,9 @@ export class CheckoutService {
       });
       addressData = { ...savedAddr };
     } else {
-      throw new BadRequestException('A shipping address is required for checkout.');
+      throw new BadRequestException(
+        'A shipping address is required for checkout.',
+      );
     }
 
     // 4. Calculate Totals and Apply Promotions
@@ -108,7 +136,11 @@ export class CheckoutService {
     let appliedCoupons: string[] = [];
 
     if (data.couponCodes && data.couponCodes.length > 0) {
-      const validation = await this.promotionsService.validateDiscount(userId, data.couponCodes, subtotal);
+      const validation = await this.promotionsService.validateDiscount(
+        userId,
+        data.couponCodes,
+        subtotal,
+      );
       discount = validation.discountAmount;
       freeShipping = validation.freeShipping;
       appliedCoupons = validation.couponsApplied;
@@ -127,20 +159,28 @@ export class CheckoutService {
       // ── Re-validate + RESERVE inventory (not deduct) ──────────────────────
       for (const item of cart.items) {
         if (item.variantId) {
-          const inv = await tx.inventory.findUnique({ where: { variantId: item.variantId } });
+          const inv = await tx.inventory.findUnique({
+            where: { variantId: item.variantId },
+          });
           const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
           if (!inv || available < item.quantity) {
-            throw new BadRequestException(`Stock changed. Insufficient stock for "${item.product.name}".`);
+            throw new BadRequestException(
+              `Stock changed. Insufficient stock for "${item.product.name}".`,
+            );
           }
           await tx.inventory.update({
             where: { id: inv.id },
             data: { reserved: { increment: item.quantity } },
           });
         } else {
-          const inv = await tx.inventory.findUnique({ where: { productId: item.productId } });
+          const inv = await tx.inventory.findUnique({
+            where: { productId: item.productId },
+          });
           const available = (inv?.quantity ?? 0) - (inv?.reserved ?? 0);
           if (!inv || available < item.quantity) {
-            throw new BadRequestException(`Stock changed. Insufficient stock for "${item.product.name}".`);
+            throw new BadRequestException(
+              `Stock changed. Insufficient stock for "${item.product.name}".`,
+            );
           }
           await tx.inventory.update({
             where: { id: inv.id },
@@ -181,7 +221,9 @@ export class CheckoutService {
         });
 
         if (result.count === 0) {
-          throw new BadRequestException(`Failed to apply coupon: ${code}. Limit reached or expired.`);
+          throw new BadRequestException(
+            `Failed to apply coupon: ${code}. Limit reached or expired.`,
+          );
         }
 
         const coupon = await tx.coupon.findUnique({
@@ -195,11 +237,17 @@ export class CheckoutService {
           } else if (coupon.discountType === DiscountType.PERCENTAGE) {
             let valueDeducted = (subtotal * Number(coupon.value)) / 100;
             if (coupon.maxDiscountAmount !== null) {
-              valueDeducted = Math.min(valueDeducted, Number(coupon.maxDiscountAmount));
+              valueDeducted = Math.min(
+                valueDeducted,
+                Number(coupon.maxDiscountAmount),
+              );
             }
             discountAppliedForThisCoupon = valueDeducted;
           } else if (coupon.discountType === DiscountType.FIXED_AMOUNT) {
-            discountAppliedForThisCoupon = Math.min(subtotal, Number(coupon.value));
+            discountAppliedForThisCoupon = Math.min(
+              subtotal,
+              Number(coupon.value),
+            );
           }
 
           await tx.couponRedemption.create({
@@ -254,7 +302,9 @@ export class CheckoutService {
 
       // ── Create Payment record (PENDING) ──────────────────────────────────
       const idempotencyKey = uuidv4();
-      const expiresAt = new Date(Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000);
+      const expiresAt = new Date(
+        Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000,
+      );
 
       const payment = await tx.payment.create({
         data: {
@@ -306,12 +356,12 @@ export class CheckoutService {
     });
 
     // Log purchase activity for recommendations engine
-    await this.promotionsService.trackUserActivity(
-      userId,
-      UserActivityType.PURCHASE,
-      undefined,
-      { orderId: result.order.id, total: result.order.total },
-    ).catch(err => console.error('Failed to log checkout activity:', err));
+    await this.promotionsService
+      .trackUserActivity(userId, UserActivityType.PURCHASE, undefined, {
+        orderId: result.order.id,
+        total: result.order.total,
+      })
+      .catch((err) => console.error('Failed to log checkout activity:', err));
 
     return result;
   }

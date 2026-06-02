@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -24,7 +28,7 @@ export class AuthService {
   ) {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    
+
     return this.usersService.create(
       email,
       passwordHash,
@@ -69,14 +73,20 @@ export class AuthService {
       include: { user: true },
     });
 
-    if (!savedToken || savedToken.isRevoked || savedToken.expiresAt < new Date()) {
+    if (
+      !savedToken ||
+      savedToken.isRevoked ||
+      savedToken.expiresAt < new Date()
+    ) {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
     // 2. Verify JWT signature
     try {
       this.jwtService.verify(token, {
-        secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key-change-in-production-456',
+        secret:
+          process.env.JWT_REFRESH_SECRET ||
+          'super-secret-refresh-key-change-in-production-456',
       });
     } catch (e) {
       throw new UnauthorizedException('Invalid refresh token signature');
@@ -126,11 +136,15 @@ export class AuthService {
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_SECRET || 'super-secret-jwt-key-change-in-production-123',
+        secret:
+          process.env.JWT_SECRET ||
+          'super-secret-jwt-key-change-in-production-123',
         expiresIn: (process.env.JWT_EXPIRES_IN as any) || '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: process.env.JWT_REFRESH_SECRET || 'super-secret-refresh-key-change-in-production-456',
+        secret:
+          process.env.JWT_REFRESH_SECRET ||
+          'super-secret-refresh-key-change-in-production-456',
         expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN as any) || '7d',
       }),
     ]);

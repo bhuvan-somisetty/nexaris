@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Param, Query, Body, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { SellerRatingsService } from './seller-ratings.service';
 import { CreateSellerRatingDto } from './seller-ratings.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +34,10 @@ export class SellerRatingsController {
   @Get('eligibility/:sellerId')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER)
-  async checkEligibility(@Param('sellerId') sellerId: string, @Request() req: any) {
+  async checkEligibility(
+    @Param('sellerId') sellerId: string,
+    @Request() req: any,
+  ) {
     const customerId = req.user.id;
     return this.sellerRatingsService.checkEligibility(sellerId, customerId);
   }
@@ -33,7 +45,10 @@ export class SellerRatingsController {
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.CUSTOMER)
-  async createSellerRating(@Body() dto: CreateSellerRatingDto, @Request() req: any) {
+  async createSellerRating(
+    @Body() dto: CreateSellerRatingDto,
+    @Request() req: any,
+  ) {
     const customerId = req.user.id;
     return this.sellerRatingsService.createSellerRating(customerId, dto);
   }

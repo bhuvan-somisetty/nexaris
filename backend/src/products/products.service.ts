@@ -1,6 +1,16 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { Role, ProductStatus, SellerStatus, NotificationType } from '@prisma/client';
+import {
+  Role,
+  ProductStatus,
+  SellerStatus,
+  NotificationType,
+} from '@prisma/client';
 import { Prisma } from '@prisma/client';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -71,7 +81,9 @@ export class ProductsService {
     // 6. Sorting
     const sortBy = query.sortBy || 'createdAt';
     const sortOrder = query.sortOrder || 'desc';
-    const orderBy: Prisma.ProductOrderByWithRelationInput = { [sortBy]: sortOrder };
+    const orderBy: Prisma.ProductOrderByWithRelationInput = {
+      [sortBy]: sortOrder,
+    };
 
     const [products, total] = await Promise.all([
       this.prisma.product.findMany({
@@ -192,12 +204,22 @@ export class ProductsService {
       include: { sellerProfile: true },
     });
 
-    if (!seller || seller.role !== Role.SELLER || seller.sellerProfile?.status !== SellerStatus.APPROVED) {
+    if (
+      !seller ||
+      seller.role !== Role.SELLER ||
+      seller.sellerProfile?.status !== SellerStatus.APPROVED
+    ) {
       throw new ForbiddenException('Only approved sellers can list products.');
     }
 
     // 2. Generate slug
-    const slug = data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '') + '-' + Date.now().toString().slice(-4);
+    const slug =
+      data.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '') +
+      '-' +
+      Date.now().toString().slice(-4);
 
     // 3. Verify SKU uniqueness
     if (data.sku) {
@@ -294,7 +316,11 @@ export class ProductsService {
           action: 'PRODUCT_CREATE',
           entity: 'PRODUCT',
           entityId: product.id,
-          newValue: { name: product.name, price: product.price, sku: product.sku },
+          newValue: {
+            name: product.name,
+            price: product.price,
+            sku: product.sku,
+          },
         },
       });
 
@@ -307,7 +333,9 @@ export class ProductsService {
 
     // Verify Ownership
     if (userRole === Role.SELLER && product.sellerId !== userId) {
-      throw new ForbiddenException('You do not have permission to modify this product.');
+      throw new ForbiddenException(
+        'You do not have permission to modify this product.',
+      );
     }
 
     // Prepare update parameters
@@ -316,7 +344,8 @@ export class ProductsService {
       updateData.name = data.name;
       // Slug update is optional; usually we keep it persistent, but we can generate a new one if name changes drastically
     }
-    if (data.description !== undefined) updateData.description = data.description;
+    if (data.description !== undefined)
+      updateData.description = data.description;
     if (data.price !== undefined) updateData.price = data.price;
     if (data.sku !== undefined) {
       if (data.sku) {
@@ -329,7 +358,12 @@ export class ProductsService {
       }
       updateData.sku = data.sku || null;
     }
-    if (data.status && (userRole === Role.ADMIN || data.status === ProductStatus.DRAFT || data.status === ProductStatus.PENDING_REVIEW)) {
+    if (
+      data.status &&
+      (userRole === Role.ADMIN ||
+        data.status === ProductStatus.DRAFT ||
+        data.status === ProductStatus.PENDING_REVIEW)
+    ) {
       // Sellers can only toggle between DRAFT and PENDING_REVIEW; admins can set any status
       updateData.status = data.status;
     }
@@ -384,7 +418,10 @@ export class ProductsService {
           where: { productId: id },
           data: {
             quantity: data.quantity,
-            lowStockThreshold: data.lowStockThreshold !== undefined ? data.lowStockThreshold : undefined,
+            lowStockThreshold:
+              data.lowStockThreshold !== undefined
+                ? data.lowStockThreshold
+                : undefined,
           },
         });
       }
@@ -432,7 +469,9 @@ export class ProductsService {
 
     // Verify ownership
     if (userRole === Role.SELLER && product.sellerId !== userId) {
-      throw new ForbiddenException('You do not have permission to delete this product.');
+      throw new ForbiddenException(
+        'You do not have permission to delete this product.',
+      );
     }
 
     await this.prisma.$transaction(async (tx) => {

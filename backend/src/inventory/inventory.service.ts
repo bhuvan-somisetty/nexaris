@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Role } from '@prisma/client';
 
@@ -26,10 +30,16 @@ export class InventoryService {
       throw new NotFoundException('Inventory not found for this product');
     }
 
-    return variants.map(v => v.inventory).filter(i => i !== null);
+    return variants.map((v) => v.inventory).filter((i) => i !== null);
   }
 
-  async update(id: string, userId: string, userRole: Role, quantity: number, lowStockThreshold?: number) {
+  async update(
+    id: string,
+    userId: string,
+    userRole: Role,
+    quantity: number,
+    lowStockThreshold?: number,
+  ) {
     const inventory = await this.prisma.inventory.findUnique({
       where: { id },
       include: {
@@ -47,9 +57,12 @@ export class InventoryService {
     }
 
     // Verify ownership
-    const sellerId = inventory.product?.sellerId || inventory.variant?.product?.sellerId;
+    const sellerId =
+      inventory.product?.sellerId || inventory.variant?.product?.sellerId;
     if (userRole === Role.SELLER && sellerId !== userId) {
-      throw new ForbiddenException('You do not have permission to modify this stock.');
+      throw new ForbiddenException(
+        'You do not have permission to modify this stock.',
+      );
     }
 
     const data: any = { quantity };

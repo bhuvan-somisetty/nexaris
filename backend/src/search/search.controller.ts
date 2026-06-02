@@ -94,7 +94,10 @@ export class SearchController {
   // ─── Click Analytics Logger ────────────────────────────────────────────────
   @Post('click')
   async logClick(@Body() body: LogClickDto) {
-    await this.searchService.logSearchClick(body.searchQueryLogId, body.productId);
+    await this.searchService.logSearchClick(
+      body.searchQueryLogId,
+      body.productId,
+    );
     return { success: true };
   }
 

@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ProductStatus } from '@prisma/client';
 
@@ -56,7 +61,12 @@ export class CartService {
     return cart;
   }
 
-  async addItem(userId: string, productId: string, variantId: string | null | undefined, quantity: number) {
+  async addItem(
+    userId: string,
+    productId: string,
+    variantId: string | null | undefined,
+    quantity: number,
+  ) {
     if (quantity <= 0) {
       throw new BadRequestException('Quantity must be greater than 0');
     }
@@ -76,7 +86,9 @@ export class CartService {
 
     // Check if product requires a variant selection
     if (product.variants.length > 0 && !variantId) {
-      throw new BadRequestException('This product has variations. Please select an option.');
+      throw new BadRequestException(
+        'This product has variations. Please select an option.',
+      );
     }
 
     let availableStock = 0;
