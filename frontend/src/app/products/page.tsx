@@ -101,6 +101,7 @@ function DiscoveryContent() {
   const [inStockOnly, setInStockOnly] = useState(initialInStock);
   const [selectedRating, setSelectedRating] = useState(initialRating);
   const [page, setPage] = useState(initialPage);
+  const [sellerId] = useState(searchParams.get('sellerId') || '');
   const [sortBy, setSortBy] = useState('relevance');
 
   // API Responses
@@ -207,6 +208,7 @@ function DiscoveryContent() {
         maxPrice: maxPrice ? Number(maxPrice) : undefined,
         inStock: inStockOnly,
         rating: selectedRating || undefined,
+        sellerId: sellerId || undefined,
         page,
         limit: 9
       });
@@ -238,7 +240,7 @@ function DiscoveryContent() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, selectedCategories, selectedBrands, minPrice, maxPrice, inStockOnly, selectedRating, page]);
+  }, [debouncedSearch, selectedCategories, selectedBrands, minPrice, maxPrice, inStockOnly, selectedRating, sellerId, page]);
 
   useEffect(() => {
     fetchSearchResults();

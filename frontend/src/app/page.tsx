@@ -136,6 +136,8 @@ export default function Home() {
   const [recentlyViewed, setRecentlyViewed] = useState<RecommendedProduct[]>([]);
   const [categories, setCategories] = useState<CategoryRec[]>([]);
   const [deals, setDeals] = useState<DealProduct[]>([]);
+  const [newArrivals, setNewArrivals] = useState<RecommendedProduct[]>([]);
+  const [bestSellers, setBestSellers] = useState<RecommendedProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [heroIndex, setHeroIndex] = useState(0);
   const [query, setQuery] = useState('');
@@ -182,6 +184,38 @@ export default function Home() {
         }
         mapped.sort((a, b) => (1 - a.price / (a.originalPrice as number) < 1 - b.price / (b.originalPrice as number) ? 1 : -1));
         setDeals(mapped.slice(0, 12));
+
+        // New Arrivals + Best Sellers (de-duplicated by image for visual variety)
+        const toRec = (pr: any, reason: string): RecommendedProduct => {
+          const revs = pr.reviews || [];
+          const avg = revs.length ? revs.reduce((a: number, r: any) => a + r.rating, 0) / revs.length : undefined;
+          return {
+            id: pr.id, name: pr.name, slug: pr.slug, price: Number(pr.price),
+            image: pr.images?.[0]?.url || null,
+            category: { id: pr.category?.id || '', name: pr.category?.name || '', slug: pr.category?.slug || '' },
+            rating: avg, score: 0, reason,
+          };
+        };
+        const dedupeByImage = (items: any[], reason: string, n: number) => {
+          const seenImg = new Set<string>();
+          const out: RecommendedProduct[] = [];
+          for (const it of items) {
+            const key = (it.product.images?.[0]?.url || it.product.name).toLowerCase();
+            if (seenImg.has(key)) continue;
+            seenImg.add(key);
+            out.push(toRec(it.product, reason));
+            if (out.length >= n) break;
+          }
+          return out;
+        };
+        const byNewest = [...search.products].sort(
+          (a, b) => new Date(b.product.createdAt).getTime() - new Date(a.product.createdAt).getTime(),
+        );
+        const byPopular = [...search.products].sort(
+          (a, b) => (b.product.reviews?.length || 0) - (a.product.reviews?.length || 0),
+        );
+        setNewArrivals(dedupeByImage(byNewest, 'New arrival', 12));
+        setBestSellers(dedupeByImage(byPopular, 'Bestseller', 12));
       } catch {
         /* silent */
       } finally {
@@ -358,6 +392,32 @@ export default function Home() {
             accentColor="purple"
             loading={loading}
           />
+
+          {/* ── New Arrivals ── */}
+          {(loading || newArrivals.length > 0) && (
+            <RecommendationShelf
+              title="New Arrivals"
+              subtitle="Fresh additions to the marketplace"
+              products={newArrivals}
+              recommendationType="NEW_ARRIVALS"
+              icon="sparkles"
+              accentColor="emerald"
+              loading={loading}
+            />
+          )}
+
+          {/* ── Best Sellers ── */}
+          {(loading || bestSellers.length > 0) && (
+            <RecommendationShelf
+              title="Best Sellers"
+              subtitle="Most-loved products by Nexaris shoppers"
+              products={bestSellers}
+              recommendationType="BEST_SELLERS"
+              icon="trending"
+              accentColor="amber"
+              loading={loading}
+            />
+          )}
 
           {/* ── Recommended For You ── */}
           <RecommendationShelf

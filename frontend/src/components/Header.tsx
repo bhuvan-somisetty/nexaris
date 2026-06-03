@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { Menu, X, LogOut, User as UserIcon, Shield, Store, ShoppingCart, Heart, Bell } from 'lucide-react';
 import { api } from '../lib/api';
+import { SearchBar } from './SearchBar';
 
 export const Header: React.FC = () => {
   const { user, logout } = useAuth();
@@ -116,6 +117,11 @@ export const Header: React.FC = () => {
             </Link>
           </div>
 
+          {/* Center search bar (desktop) */}
+          <div className="hidden lg:flex flex-1 max-w-xl mx-6">
+            <SearchBar className="w-full" />
+          </div>
+
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-6">
             <Link href="/" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
@@ -129,6 +135,9 @@ export const Header: React.FC = () => {
             </Link>
             <Link href="/#deals" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
               Deals
+            </Link>
+            <Link href="/sellers" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Sellers
             </Link>
 
             {user ? (
@@ -390,7 +399,10 @@ export const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden border-t border-slate-900 bg-slate-950 px-4 pb-4 pt-2 space-y-2">
+        <div className="md:hidden border-t border-slate-900 bg-slate-950 px-4 pb-4 pt-3 space-y-2">
+          <div className="pb-1">
+            <SearchBar />
+          </div>
           <Link
             href="/"
             onClick={() => setIsOpen(false)}
@@ -418,6 +430,13 @@ export const Header: React.FC = () => {
             className="block rounded-lg px-3 py-2 text-base font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
           >
             Deals
+          </Link>
+          <Link
+            href="/sellers"
+            onClick={() => setIsOpen(false)}
+            className="block rounded-lg px-3 py-2 text-base font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
+          >
+            Sellers
           </Link>
 
           {user ? (
