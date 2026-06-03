@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
 import { Header } from '../components/Header';
 import { RecommendationShelf } from '../components/RecommendationShelf';
 import {
-  Shield, Key, Database, RefreshCw, ArrowRight, CheckCircle2, User, Store,
+  Shield, ArrowRight, Sparkles, User, Store,
   ChevronRight, Layers,
 } from 'lucide-react';
 import {
@@ -49,6 +49,24 @@ export default function Home() {
     fetchRecs();
   }, []);
 
+  // Build two distinct, de-duplicated rows so "Recommended" and "Trending"
+  // never repeat the same item or show visually identical products.
+  const { personalizedRow, trendingRow } = useMemo(() => {
+    const keyOf = (p: RecommendedProduct) =>
+      (p.image || p.name.split(' - ')[0] || p.name).trim().toLowerCase();
+    const seen = new Set<string>();
+    const pool: RecommendedProduct[] = [];
+    for (const p of [...personalized, ...trending]) {
+      const k = keyOf(p);
+      if (!seen.has(k)) {
+        seen.add(k);
+        pool.push(p);
+      }
+    }
+    const half = Math.ceil(pool.length / 2);
+    return { personalizedRow: pool.slice(0, half), trendingRow: pool.slice(half) };
+  }, [personalized, trending]);
+
   return (
     <>
       <Header />
@@ -59,8 +77,8 @@ export default function Home() {
 
         <div className="max-w-4xl text-center relative z-10">
           <div className="inline-flex items-center space-x-2 rounded-full border border-indigo-500/30 bg-indigo-500/5 px-3 py-1 text-xs text-indigo-400 font-mono tracking-wider uppercase mb-6 shadow-sm shadow-indigo-500/10">
-            <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>Phase 11 — AI Recommendation Engine Active</span>
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Smart picks • Up to 40% off this week</span>
           </div>
 
           <h1 className="bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-4xl sm:text-6xl font-extrabold tracking-tight text-transparent leading-none">
@@ -127,24 +145,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Feature Grid */}
-        <div className="mx-auto max-w-6xl mt-24 grid grid-cols-1 md:grid-cols-4 gap-6 relative z-10 px-4 sm:px-6">
-          {[
-            { icon: Shield, color: 'indigo', label: 'Modular Monolith', desc: 'Clean directory separation using npm workspaces, allowing decoupled frontend and backend modules.' },
-            { icon: Database, color: 'emerald', label: 'PostgreSQL & Prisma', desc: 'Highly relational database schema supporting users, addresses, audit logs, and notifications.' },
-            { icon: Key, color: 'purple', label: 'JWT & Encryption', desc: 'Passwords securely hashed via bcrypt. Safe access JWTs passed through authorization headers.' },
-            { icon: RefreshCw, color: 'rose', label: 'Token Rotation', desc: 'Persisted refresh token flow with automatic sliding-window rotation and secure revocation on log out.' },
-          ].map(({ icon: Icon, color, label, desc }) => (
-            <div key={label} className="rounded-2xl border border-slate-900 bg-slate-950 p-6 shadow-sm hover:border-slate-800 transition-all duration-200 group">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-${color}-500/10 border border-${color}-500/20 text-${color}-400 mb-4 group-hover:bg-${color}-500/20 transition-all duration-200`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-200">{label}</h3>
-              <p className="mt-2 text-sm text-slate-400 leading-relaxed">{desc}</p>
-            </div>
-          ))}
-        </div>
-
         {/* ── Recommendation Sections ── */}
         <div className="mx-auto max-w-7xl mt-20 w-full space-y-14 relative z-10 px-4 sm:px-6">
 
@@ -175,7 +175,7 @@ export default function Home() {
           <RecommendationShelf
             title="Recommended For You"
             subtitle="Personalized based on your browsing history"
-            products={personalized}
+            products={personalizedRow}
             recommendationType="PERSONALIZED"
             icon="sparkles"
             accentColor="indigo"
@@ -186,7 +186,7 @@ export default function Home() {
           <RecommendationShelf
             title="Trending Now"
             subtitle="Most popular products across Nexaris this week"
-            products={trending}
+            products={trendingRow}
             recommendationType="TRENDING"
             icon="trending"
             accentColor="purple"
