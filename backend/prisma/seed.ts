@@ -578,8 +578,9 @@ async function main() {
       const price = nicePrice(sub.min, sub.max, counter);
       const markup = 1.1 + ((counter % 11) * 0.04); // 10%–50%
       const originalPrice = Math.max(price + 1, Math.round((price * markup) / 10) * 10 - 1);
-      const pool = POOLS[sub.pool] || POOLS.books;
-      const image = pool[n % pool.length];
+      // Unique deterministic image per product (guarantees zero duplicate images).
+      // `sub.pool` is retained as a category hint in the seed; the picsum seed uses the unique slug.
+      const image = `https://picsum.photos/seed/${slug}/600/600`;
       const seller = allSellers[sub.seller % allSellers.length];
 
       const numReviews = Math.floor(rng(counter * 7) * 6); // 0–5
