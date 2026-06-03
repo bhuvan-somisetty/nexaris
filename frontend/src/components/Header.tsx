@@ -122,9 +122,15 @@ export const Header: React.FC = () => {
               Home
             </Link>
             <Link href="/products" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
-              Shop
+              Products
             </Link>
-            
+            <Link href="/products" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Categories
+            </Link>
+            <Link href="/#deals" className="text-sm font-medium text-slate-300 hover:text-white transition-colors">
+              Deals
+            </Link>
+
             {user ? (
               <>
                 {user.role === 'ADMIN' && (
@@ -397,9 +403,23 @@ export const Header: React.FC = () => {
             onClick={() => setIsOpen(false)}
             className="block rounded-lg px-3 py-2 text-base font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
           >
-            Shop
+            Products
           </Link>
-          
+          <Link
+            href="/products"
+            onClick={() => setIsOpen(false)}
+            className="block rounded-lg px-3 py-2 text-base font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
+          >
+            Categories
+          </Link>
+          <Link
+            href="/#deals"
+            onClick={() => setIsOpen(false)}
+            className="block rounded-lg px-3 py-2 text-base font-medium text-slate-300 hover:bg-slate-900 hover:text-white transition-colors"
+          >
+            Deals
+          </Link>
+
           {user ? (
             <>
               {user.role === 'ADMIN' && (

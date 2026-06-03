@@ -306,7 +306,7 @@ export default function Home() {
 
           {/* ── Deals of the Day ── */}
           {(loading || deals.length > 0) && (
-            <section className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900/80 to-slate-950 p-5 sm:p-6">
+            <section id="deals" className="scroll-mt-20 rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900/80 to-slate-950 p-5 sm:p-6">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
                   <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-rose-500/15 text-rose-400">

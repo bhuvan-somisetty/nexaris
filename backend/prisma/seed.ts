@@ -360,164 +360,259 @@ async function main() {
   });
   console.log(`Created variant product: ${product4.name}`);
 
-  // --- Programmatic generation of 2000 products spanning 1 INR to 5 Lakhs ---
-  console.log('Generating 2000 products spanning 1 INR to 5 Lakhs...');
+  // ── Marketplace catalog: 2000+ unique products across realistic categories ──
+  console.log('Building realistic marketplace catalog...');
 
   function slugify(text: string) {
-    return text
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
+    return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
+  // Deterministic PRNG so the catalog is stable across re-seeds
+  function rng(seed: number) {
+    let t = (seed + 0x6d2b79f5) | 0;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function nicePrice(min: number, max: number, seed: number) {
+    const raw = min + rng(seed) * (max - min);
+    let p: number;
+    if (raw < 100) p = Math.round(raw / 10) * 10 - 1;
+    else if (raw < 1000) p = Math.round(raw / 50) * 50 - 1;
+    else if (raw < 10000) p = Math.round(raw / 100) * 100 - 1;
+    else if (raw < 100000) p = Math.round(raw / 500) * 500 - 1;
+    else p = Math.round(raw / 1000) * 1000 - 1;
+    return Math.max(9, p);
   }
 
-  const TIER_1_TEMPLATES = [
-    { name: 'Safety Pin Pack', basePrice: 5, desc: 'Assorted steel safety pins.', img: 'https://images.unsplash.com/photo-1565193998996-26651a7be241?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Miniature Wooden Bookmark', basePrice: 20, desc: 'Handcrafted birch bookmark with laser-etched patterns.', img: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=600', category: 'books' },
-    { name: 'Anti-Slip Cable Clip', basePrice: 45, desc: 'Double-sided adhesive silicone wire routing guide.', img: 'https://images.unsplash.com/photo-1558089687-f282ffcbd1d5?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Stylus Touch Pen Tips', basePrice: 90, desc: 'Pack of 3 replacement rubber tips for universal capacitive pens.', img: 'https://images.unsplash.com/photo-1585776245991-cf89dd7fc73a?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Clear TPU Phone Screen Guard', basePrice: 79, desc: 'Oleophobic screen protector for daily scratches.', img: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Gel Pen Blue Refills', basePrice: 15, desc: 'Smooth flow 0.5mm replacement ink cartridge.', img: 'https://images.unsplash.com/photo-1583485088034-697b5bc54ccd?auto=format&fit=crop&q=80&w=600', category: 'books' },
-    { name: 'Keyring Loop Connector', basePrice: 8, desc: 'Split ring connector made of high-tensile steel.', img: 'https://images.unsplash.com/photo-1582139329536-e7284fece509?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Microfiber Cleaning Cloth', basePrice: 35, desc: 'Super soft lint-free cloth for cleaning lenses and screens.', img: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Plastic Ruler 15cm', basePrice: 12, desc: 'Transparent acrylic measuring scale.', img: 'https://images.unsplash.com/photo-1501162030997-ab991e60f748?auto=format&fit=crop&q=80&w=600', category: 'books' },
-    { name: 'Self-Adhesive Sticky Notes', basePrice: 55, desc: 'Pack of 100 yellow memo sheets.', img: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=600', category: 'books' },
+  // Extra approved seller stores for marketplace variety
+  const sellerStores = [
+    { store: 'TrendThreads', desc: 'Fashion-forward apparel and accessories.' },
+    { store: 'GadgetHub', desc: 'Latest electronics and smart devices.' },
+    { store: 'HomeNest Living', desc: 'Furniture, kitchen and home essentials.' },
+    { store: 'PlayZone', desc: 'Sports gear, toys and outdoor fun.' },
+    { store: 'PageTurner', desc: 'Books across every genre.' },
   ];
-
-  const TIER_2_TEMPLATES = [
-    { name: 'Cotton Crew Neck T-Shirt', basePrice: 499, desc: 'Breathable, premium organic cotton daily t-shirt.', img: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=600', category: 'mensApparel' },
-    { name: 'Minimalist Leather Wallet', basePrice: 799, desc: 'RFID-blocking slim card holder.', img: 'https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Hardcover Notebook', basePrice: 350, desc: 'Dotted grid paper with bookmark and ribbon.', img: 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&q=80&w=600', category: 'books' },
-    { name: 'Premium Ceramic Mug', basePrice: 299, desc: 'Microwave and dishwasher safe coffee mug.', img: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Braided USB-C Cable 2m', basePrice: 450, desc: 'High-speed data transfer and 60W power delivery cable.', img: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Stainless Steel Water Bottle', basePrice: 899, desc: 'Vacuum insulated flask for cold/hot beverages.', img: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Classic Wired Mouse', basePrice: 399, desc: 'Ergonomic optical mouse with USB connector.', img: 'https://images.unsplash.com/photo-1615663245857-ac93bb7c39e7?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Aroma Diffuser Oil Pack', basePrice: 599, desc: 'Set of 6 essential oils for humidifiers.', img: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Wired Sports Earphones', basePrice: 699, desc: 'Deep bass in-ear buds with inline microphone.', img: 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Desktop Organizer Tray', basePrice: 499, desc: 'Divided plastic caddy for stationery items.', img: 'https://images.unsplash.com/photo-1596726588265-f938b81561f5?auto=format&fit=crop&q=80&w=600', category: 'books' },
-  ];
-
-  const TIER_3_TEMPLATES = [
-    { name: 'Active Noise Earbuds', basePrice: 3499, desc: 'TWS earbuds with ANC and transparency mode.', img: 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Smart Fitness Tracker', basePrice: 2499, desc: 'Heart rate, SpO2, and sleep tracking band.', img: 'https://images.unsplash.com/photo-1575311373937-040b8e1fd5b6?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Ergonomic Mechanical Keyboard', basePrice: 5999, desc: 'Hot-swappable tactile switches with RGB lighting.', img: 'https://images.unsplash.com/photo-1618384887929-16ec33fab9ef?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Anti-Theft Commuter Backpack', basePrice: 1999, desc: 'Water-resistant laptop bag with USB charging port.', img: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'High-Speed Air Fryer', basePrice: 4999, desc: 'Rapid hot-air circulation cooker for low fat meals.', img: 'https://images.unsplash.com/photo-1621972750749-0fbb1abb7736?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Premium Leather Shoes', basePrice: 4500, desc: 'Italian leather formal oxford dress shoes.', img: 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&q=80&w=600', category: 'mensApparel' },
-    { name: 'Classic Denim Denim Jacket', basePrice: 2499, desc: 'Heavyweight rugged cotton trucker jacket.', img: 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&q=80&w=600', category: 'mensApparel' },
-    { name: 'Wireless Charging Stand 3-in-1', basePrice: 1899, desc: 'Fast charge station for phone, watch, and pods.', img: 'https://images.unsplash.com/photo-1622445262465-2481c4574875?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-    { name: 'Dimmable LED Desk Lamp', basePrice: 1299, desc: 'Eye-caring touch table lamp with multiple color modes.', img: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Cast Iron Skillet Pan', basePrice: 1499, desc: 'Pre-seasoned heavy duty pan for searing and baking.', img: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-  ];
-
-  const TIER_4_TEMPLATES = [
-    { name: 'Smart UHD LED TV 43"', basePrice: 28999, desc: '4K resolution smart television with Dolby Atmos.', img: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Pro Mirrorless Camera', basePrice: 65999, desc: '24MP APS-C digital camera with kit lens.', img: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Core i5 Gaming Laptop', basePrice: 54999, desc: 'Full HD high-refresh rate screen laptop with RTX graphics.', img: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Double Door Refrigerator', basePrice: 24999, desc: 'Frost-free refrigerator with inverter compressor.', img: 'https://images.unsplash.com/photo-1571175432247-52319df65045?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Split Air Conditioner 1.5T', basePrice: 34999, desc: '5-star energy efficient smart cooling AC.', img: 'https://images.unsplash.com/photo-1621972750749-0fbb1abb7736?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Front Load Washing Machine', basePrice: 27999, desc: 'Fully automatic washer with steam cleaning technology.', img: 'https://images.unsplash.com/photo-1582738411706-bfc8e691d1c2?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: '24K Yellow Gold Coin 10g', basePrice: 74999, desc: '999.9 pure gold certified investment asset.', img: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Automatic Mechanical Watch', basePrice: 18999, desc: 'Sapphire crystal watch with stainless steel bracelet.', img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Premium Wooden Dining Set', basePrice: 42000, desc: '6-seater solid teakwood table and chairs.', img: 'https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'iPad Air 256GB', basePrice: 59999, desc: 'Retina display thin tablet with Apple M2 chip.', img: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&q=80&w=600', category: 'smartphones' },
-  ];
-
-  const TIER_5_TEMPLATES = [
-    { name: 'Luxury Sapphire Wristwatch', basePrice: 380000, desc: 'Handcrafted luxury wristwatch with transparent skeleton tourbillon motion.', img: 'https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Premium Electric Scooter Pro', basePrice: 145000, desc: 'High-torque long range battery electric vehicle with smart navigation.', img: 'https://images.unsplash.com/photo-1608248597481-496100c80836?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Apple Pro Display XDR 32"', basePrice: 449999, desc: 'Retina 6K resolution professional dynamic range monitor.', img: 'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Enterprise Rack Server 2U', basePrice: 489999, desc: 'Dual-processor scalable network computing workstation for high loads.', img: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Custom Diamond Engagement Ring', basePrice: 285000, desc: '1.5 Carat solitaire diamond set in an elegant 18K white gold band.', img: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'AI Workstation Tower Dual GPU', basePrice: 399999, desc: 'Supercharged computing tower with liquid cooling and dual workstation GPUs.', img: 'https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&q=80&w=600', category: 'laptops' },
-    { name: 'Luxury Leather Lounge Sofa', basePrice: 180000, desc: 'Top-grain luxury Italian leather sectional recliner sofa.', img: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'High-End Coffee Espresso Machine', basePrice: 120000, desc: 'Commercial grade dual-boiler coffee brewing system.', img: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Home Theater Laser Projector', basePrice: 299999, desc: 'Ultra short throw 4K laser projector with HDR10 support.', img: 'https://images.unsplash.com/photo-1535016120720-40c646be5580?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-    { name: 'Pure Platinum Necklace 50g', basePrice: 220000, desc: 'Exquisite handcrafted heavy solid platinum chain for investment or wear.', img: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&q=80&w=600', category: 'fashion' },
-  ];
-
-  const categoryMap: Record<string, string> = {
-    smartphones: smartphones.id,
-    laptops: laptops.id,
-    mensApparel: mensApparel.id,
-    books: books.id,
-    fashion: fashion.id,
-  };
-
-  const productDataList: any[] = [];
-
-  for (let i = 1; i <= 2000; i++) {
-    let template;
-    let tier = 1;
-    if (i <= 300) {
-      template = TIER_1_TEMPLATES[(i - 1) % TIER_1_TEMPLATES.length];
-      tier = 1;
-    } else if (i <= 800) {
-      template = TIER_2_TEMPLATES[(i - 1) % TIER_2_TEMPLATES.length];
-      tier = 2;
-    } else if (i <= 1300) {
-      template = TIER_3_TEMPLATES[(i - 1) % TIER_3_TEMPLATES.length];
-      tier = 3;
-    } else if (i <= 1800) {
-      template = TIER_4_TEMPLATES[(i - 1) % TIER_4_TEMPLATES.length];
-      tier = 4;
-    } else {
-      template = TIER_5_TEMPLATES[(i - 1) % TIER_5_TEMPLATES.length];
-      tier = 5;
-    }
-
-    const brandName = ['TATA', 'Reliance', 'Wipro', 'Aditya', 'Mahindra', 'Aura', 'Elevate', 'Vedic', 'Deco', 'Craft'][i % 10];
-    const name = `${template.name} - ${brandName} ${['Edition', 'Series', 'V3', 'Classic', 'Pro', 'Max', 'Plus', 'Premium', 'Special'][i % 9]} (v${i})`;
-    const slug = `${slugify(template.name)}-v${i}`;
-    // `price` is the discounted selling price; `originalPrice` is the MRP shown struck-through.
-    const price = template.basePrice + (i % 23);
-    const markup = 1.12 + ((i % 9) * 0.05); // ~11% to ~34% discount
-    const originalPrice = Math.max(price + 1, Math.round(price * markup));
-    const sku = `SKU-${template.name.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${i}`;
-    const catId = categoryMap[template.category] || books.id;
-
-    productDataList.push({
-      sellerId: approvedSeller.id,
-      categoryId: catId,
-      name,
-      slug,
-      description: `${template.desc} Fully vetted and backed by Nexaris Buyer Protection Guarantee. Built for high performance, reliability and everyday usability.`,
-      price,
-      originalPrice,
-      sku,
-      status: ProductStatus.PUBLISHED,
-      images: {
-        create: [
-          {
-            url: template.img,
-            altText: name,
-            isMain: true,
-          },
-        ],
-      },
-      attributes: {
-        create: [
-          { name: 'Brand', value: brandName },
-          { name: 'Tier', value: `Tier ${tier}` },
-          { name: 'Condition', value: 'New' },
-        ],
-      },
-      inventory: {
-        create: {
-          quantity: 20 + (i % 80),
-          lowStockThreshold: 5,
-        },
+  const extraSellers: any[] = [];
+  for (const ss of sellerStores) {
+    const u = await prisma.user.create({
+      data: {
+        email: `seller.${slugify(ss.store)}@nexaris.com`,
+        passwordHash: approvedSellerHash,
+        role: Role.SELLER,
+        profile: { create: { firstName: ss.store, lastName: 'Store' } },
+        sellerProfile: { create: { storeName: ss.store, storeDescription: ss.desc, status: SellerStatus.APPROVED } },
       },
     });
+    extraSellers.push(u);
+  }
+  const allSellers: any[] = [approvedSeller, ...extraSellers];
+
+  // Reviewer pool so products carry real ratings + review counts
+  const reviewers: any[] = [];
+  for (let r = 0; r < 16; r++) {
+    const u = await prisma.user.create({
+      data: {
+        email: `reviewer${r + 1}@nexaris.com`,
+        passwordHash: customerHash,
+        role: Role.CUSTOMER,
+        profile: { create: { firstName: `Reviewer${r + 1}`, lastName: 'Verified' } },
+      },
+    });
+    reviewers.push(u);
+  }
+  const reviewTitles = ['Great value for money', 'Highly recommended', 'Exactly as described', 'Loved it', 'Good quality', 'Worth the price', 'Satisfied with purchase', 'Excellent!', 'Will buy again', 'Nice product'];
+  const reviewBodies = ['Quality is great and delivery was fast.', 'Exceeded my expectations for the price.', 'Works perfectly, very happy with it.', 'Good build quality and looks premium.', 'Does the job well, no complaints.', 'Packaging was neat and the product is genuine.', 'Comfortable and well made.', 'Value for money, would recommend to friends.'];
+
+  // Extra parent categories (reuse existing fashion / electronics / books)
+  const womensCat = await prisma.category.create({ data: { name: "Women's Fashion", slug: 'womens-fashion', description: 'Apparel and accessories for women.', parentId: fashion.id } });
+  const beautyCat = await prisma.category.create({ data: { name: 'Beauty', slug: 'beauty', description: 'Makeup and skincare essentials.' } });
+  const homeCat = await prisma.category.create({ data: { name: 'Home & Kitchen', slug: 'home-kitchen', description: 'Furniture, kitchen, appliances and decor.' } });
+  const sportsCat = await prisma.category.create({ data: { name: 'Sports & Fitness', slug: 'sports-fitness', description: 'Sports gear and fitness equipment.' } });
+  const autoCat = await prisma.category.create({ data: { name: 'Automotive', slug: 'automotive', description: 'Bike and car accessories.' } });
+  const kidsCat = await prisma.category.create({ data: { name: 'Kids', slug: 'kids', description: 'Kids clothing, toys and school essentials.' } });
+
+  const B = {
+    menFashion: ['Allen Solly', 'Peter England', "Levi's", 'U.S. Polo Assn.', 'Roadster', 'HRX', 'Jack & Jones', 'Wrangler'],
+    womenFashion: ['Biba', 'W for Woman', 'Libas', 'Aurelia', 'Vero Moda', 'ONLY', 'Global Desi', 'FabIndia'],
+    footwear: ['Nike', 'Adidas', 'Puma', 'Bata', 'Woodland', 'Skechers', 'Campus', 'Red Tape'],
+    watches: ['Titan', 'Fossil', 'Casio', 'Fastrack', 'Sonata', 'Timex', 'Daniel Wellington', 'Noise'],
+    bags: ['American Tourister', 'Wildcraft', 'Skybags', 'Lavie', 'Baggit', 'Caprese', 'Safari', 'VIP'],
+    beauty: ['Lakmé', 'Maybelline', 'Mamaearth', "L'Oréal", 'Plum', 'SUGAR', 'Biotique', 'Nykaa'],
+    phones: ['Samsung', 'Apple', 'OnePlus', 'Xiaomi', 'Realme', 'vivo', 'OPPO', 'Motorola'],
+    laptops: ['Dell', 'HP', 'Lenovo', 'ASUS', 'Acer', 'Apple', 'MSI', 'Samsung'],
+    tablets: ['Apple', 'Samsung', 'Lenovo', 'Xiaomi', 'Realme', 'Honor'],
+    audio: ['boAt', 'Sony', 'JBL', 'Sennheiser', 'Noise', 'Boult', 'Marshall', 'Bose'],
+    cameras: ['Canon', 'Nikon', 'Sony', 'Fujifilm', 'GoPro', 'Panasonic'],
+    gaming: ['Sony', 'Microsoft', 'Nintendo', 'Logitech', 'Razer', 'ASUS ROG'],
+    monitors: ['LG', 'Samsung', 'Dell', 'BenQ', 'Acer', 'ViewSonic'],
+    furniture: ['Urban Ladder', 'Pepperfry', 'Nilkamal', 'Godrej Interio', 'Wakefit', 'Sleepwell'],
+    kitchen: ['Prestige', 'Hawkins', 'Pigeon', 'Milton', 'Cello', 'Borosil', 'Butterfly'],
+    appliances: ['LG', 'Samsung', 'Whirlpool', 'Bosch', 'Haier', 'Voltas', 'IFB'],
+    decor: ['Home Centre', 'Chumbak', '@home', 'Ellementry', "D'Decor"],
+    sports: ['Nike', 'Adidas', 'SG', 'SS', 'Cosco', 'Nivia', 'Yonex', 'Decathlon'],
+    automotive: ['Bosch', 'Michelin', 'MRF', 'Castrol', 'Steelbird', 'Studds', '3M', 'Amaron'],
+    kids: ['FirstCry', 'Hopscotch', 'Mothercare', 'Chicco', 'Babyhug'],
+    toys: ['LEGO', 'Funskool', 'Hot Wheels', 'Hasbro', 'Mattel'],
+    pubProg: ["O'Reilly", 'Manning', 'Packt', 'Pearson', 'Apress', 'No Starch Press'],
+    pubFic: ['Penguin', 'HarperCollins', 'Bloomsbury', 'Rupa', 'Vintage'],
+    pubAcad: ['Pearson', 'Wiley', 'McGraw Hill', 'Oxford', 'Cengage'],
+    pubBiz: ['Harper Business', 'Penguin', 'Wiley', 'Portfolio'],
+  };
+
+  const px = (k: string, n: number) => `https://picsum.photos/seed/${k}${n}/600/600`;
+  const POOLS: Record<string, string[]> = {
+    shirts: ['https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1603252109303-2751441dd157?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1620012253295-c15cc3e65df4?auto=format&fit=crop&q=80&w=600'],
+    tshirts: ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1503341504253-dff4815485f1?auto=format&fit=crop&q=80&w=600'],
+    jackets: ['https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1576995853123-5a10305d93c0?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?auto=format&fit=crop&q=80&w=600'],
+    jeans: ['https://images.unsplash.com/photo-1542272604-787c3835535d?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&q=80&w=600'],
+    footwear: ['https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1460353581641-37baddab0fa2?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1533867617858-e7b97e060509?auto=format&fit=crop&q=80&w=600'],
+    watches: ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1547996160-81dfa63595aa?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1434056886845-dac89ffe9b56?auto=format&fit=crop&q=80&w=600'],
+    bags: ['https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1591561954557-26941169b49e?auto=format&fit=crop&q=80&w=600'],
+    dresses: ['https://images.unsplash.com/photo-1595777457583-95e059d581b8?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1566174053879-31528523f8ae?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1539008835657-9e8e9680c956?auto=format&fit=crop&q=80&w=600'],
+    saree: [px('saree', 1), px('saree', 2), px('saree', 3), px('saree', 4)],
+    beauty: ['https://images.unsplash.com/photo-1596462502278-27bfdc403348?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1571781926291-c477ebfd024b?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?auto=format&fit=crop&q=80&w=600'],
+    phone: ['https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1574944985070-8f3ebc6b79d2?auto=format&fit=crop&q=80&w=600'],
+    laptop: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1593642702821-c8da6771f0c6?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1525547719571-a2d4ac8945e2?auto=format&fit=crop&q=80&w=600'],
+    tablet: ['https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1561154464-82e9adf32764?auto=format&fit=crop&q=80&w=600', px('tablet', 3), px('tablet', 4)],
+    monitor: ['https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1547119957-637f8679db1e?auto=format&fit=crop&q=80&w=600', px('monitor', 4)],
+    audio: ['https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1546435770-a3e426bf472b?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1484704849700-f032a568e944?auto=format&fit=crop&q=80&w=600'],
+    camera: ['https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1502920917128-1aa500764cbd?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1495707902641-75cac588d2e9?auto=format&fit=crop&q=80&w=600', px('camera', 4)],
+    gaming: ['https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1612801799890-4ba4760b6590?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&q=80&w=600', px('gaming', 4)],
+    furniture: ['https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1577140917170-285929fb55b7?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1538688525198-9b88f6f53126?auto=format&fit=crop&q=80&w=600'],
+    kitchen: ['https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=600', px('kitchen', 3), px('kitchen', 4)],
+    appliances: ['https://images.unsplash.com/photo-1571175432247-52319df65045?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1582738411706-bfc8e691d1c2?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1621972750749-0fbb1abb7736?auto=format&fit=crop&q=80&w=600', px('appliance', 4)],
+    decor: ['https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1513519245088-0e12902e35ca?auto=format&fit=crop&q=80&w=600', px('decor', 3), px('decor', 4)],
+    sports: ['https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?auto=format&fit=crop&q=80&w=600', px('sports', 3), px('sports', 4)],
+    cycling: ['https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1532298229144-0ec0c57515c7?auto=format&fit=crop&q=80&w=600', px('cycle', 3), px('cycle', 4)],
+    books: ['https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=600', 'https://images.unsplash.com/photo-1532012197267-da84d127e765?auto=format&fit=crop&q=80&w=600'],
+    automotive: [px('auto', 1), px('auto', 2), px('auto', 3), px('auto', 4)],
+    kids: [px('kids', 1), px('kids', 2), px('kids', 3), px('kids', 4)],
+    toys: [px('toys', 1), px('toys', 2), px('toys', 3), px('toys', 4)],
+    school: [px('school', 1), px('school', 2), px('school', 3), px('school', 4)],
+  };
+
+  type Sub = { name: string; parentId: string; brand: string[]; types: string[]; min: number; max: number; pool: string; seller: number; id?: string };
+  const SUBS: Sub[] = [
+    { name: "Men's Shirts", parentId: fashion.id, brand: B.menFashion, types: ['Slim Fit Shirt', 'Casual Shirt', 'Formal Shirt', 'Checked Shirt', 'Linen Shirt', 'Oxford Shirt'], min: 399, max: 2499, pool: 'shirts', seller: 0 },
+    { name: "Men's T-Shirts", parentId: fashion.id, brand: B.menFashion, types: ['Round Neck T-Shirt', 'Polo T-Shirt', 'Henley T-Shirt', 'Graphic Tee', 'V-Neck T-Shirt', 'Oversized Tee'], min: 199, max: 1499, pool: 'tshirts', seller: 0 },
+    { name: "Men's Jackets", parentId: fashion.id, brand: B.menFashion, types: ['Bomber Jacket', 'Denim Jacket', 'Puffer Jacket', 'Hooded Jacket', 'Windcheater', 'Biker Jacket'], min: 999, max: 7999, pool: 'jackets', seller: 0 },
+    { name: "Men's Jeans", parentId: fashion.id, brand: B.menFashion, types: ['Slim Fit Jeans', 'Regular Jeans', 'Skinny Jeans', 'Tapered Jeans', 'Straight Fit Jeans'], min: 699, max: 3499, pool: 'jeans', seller: 0 },
+    { name: "Men's Trousers", parentId: fashion.id, brand: B.menFashion, types: ['Chinos', 'Formal Trousers', 'Cargo Pants', 'Joggers', 'Track Pants'], min: 599, max: 2999, pool: 'jeans', seller: 0 },
+    { name: "Men's Shorts", parentId: fashion.id, brand: B.menFashion, types: ['Cotton Shorts', 'Denim Shorts', 'Cargo Shorts', 'Sports Shorts'], min: 299, max: 1499, pool: 'tshirts', seller: 0 },
+    { name: "Men's Innerwear", parentId: fashion.id, brand: B.menFashion, types: ['Vest Pack', 'Brief Pack', 'Trunk Pack', 'Boxer Pack'], min: 199, max: 999, pool: 'tshirts', seller: 0 },
+    { name: "Men's Footwear", parentId: fashion.id, brand: B.footwear, types: ['Running Shoes', 'Sneakers', 'Formal Shoes', 'Loafers', 'Sports Shoes', 'Casual Shoes'], min: 799, max: 7999, pool: 'footwear', seller: 0 },
+    { name: 'Watches', parentId: fashion.id, brand: B.watches, types: ['Analog Watch', 'Digital Watch', 'Chronograph Watch', 'Automatic Watch', 'Dress Watch'], min: 999, max: 29999, pool: 'watches', seller: 0 },
+    { name: 'Sarees', parentId: womensCat.id, brand: B.womenFashion, types: ['Silk Saree', 'Cotton Saree', 'Georgette Saree', 'Banarasi Saree', 'Chiffon Saree'], min: 699, max: 14999, pool: 'saree', seller: 0 },
+    { name: 'Kurtis', parentId: womensCat.id, brand: B.womenFashion, types: ['Anarkali Kurti', 'Straight Kurti', 'A-Line Kurti', 'Printed Kurti', 'Embroidered Kurti'], min: 399, max: 2999, pool: 'dresses', seller: 0 },
+    { name: "Women's Tops", parentId: womensCat.id, brand: B.womenFashion, types: ['Casual Top', 'Crop Top', 'Peplum Top', 'Tunic Top', 'Off-Shoulder Top'], min: 299, max: 1999, pool: 'tshirts', seller: 0 },
+    { name: 'Dresses', parentId: womensCat.id, brand: B.womenFashion, types: ['Maxi Dress', 'Bodycon Dress', 'A-Line Dress', 'Wrap Dress', 'Skater Dress'], min: 599, max: 4999, pool: 'dresses', seller: 0 },
+    { name: "Women's Jeans", parentId: womensCat.id, brand: B.womenFashion, types: ['Skinny Jeans', 'High-Waist Jeans', 'Mom Jeans', 'Bootcut Jeans'], min: 699, max: 3499, pool: 'jeans', seller: 0 },
+    { name: 'Handbags', parentId: womensCat.id, brand: B.bags, types: ['Tote Bag', 'Sling Bag', 'Shoulder Bag', 'Clutch', 'Mini Backpack'], min: 599, max: 7999, pool: 'bags', seller: 0 },
+    { name: "Women's Footwear", parentId: womensCat.id, brand: B.footwear, types: ['Heels', 'Flats', 'Sandals', 'Wedges', 'Sneakers'], min: 499, max: 4999, pool: 'footwear', seller: 0 },
+    { name: 'Makeup', parentId: beautyCat.id, brand: B.beauty, types: ['Lipstick', 'Foundation', 'Kajal', 'Compact Powder', 'Eyeliner', 'Mascara'], min: 149, max: 1999, pool: 'beauty', seller: 0 },
+    { name: 'Skincare', parentId: beautyCat.id, brand: B.beauty, types: ['Face Wash', 'Moisturizer', 'Sunscreen', 'Face Serum', 'Night Cream'], min: 199, max: 2499, pool: 'beauty', seller: 0 },
+    { name: 'Smartphones', parentId: smartphones.id, brand: B.phones, types: ['5G Smartphone', 'Pro Smartphone', 'Lite Smartphone', 'Ultra Smartphone', 'Note Smartphone'], min: 6999, max: 159999, pool: 'phone', seller: 1 },
+    { name: 'Laptops', parentId: laptops.id, brand: B.laptops, types: ['Thin & Light Laptop', 'Gaming Laptop', 'Business Laptop', '2-in-1 Laptop', 'Ultrabook'], min: 28999, max: 399999, pool: 'laptop', seller: 1 },
+    { name: 'Tablets', parentId: electronics.id, brand: B.tablets, types: ['Android Tablet', 'Pro Tablet', 'Lite Tablet', 'Kids Tablet'], min: 7999, max: 99999, pool: 'tablet', seller: 1 },
+    { name: 'Monitors', parentId: electronics.id, brand: B.monitors, types: ['Full HD Monitor', '4K Monitor', 'Curved Monitor', 'Gaming Monitor', 'UltraWide Monitor'], min: 6999, max: 89999, pool: 'monitor', seller: 1 },
+    { name: 'Headphones', parentId: electronics.id, brand: B.audio, types: ['Over-Ear Headphones', 'Wireless Headphones', 'Noise Cancelling Headphones', 'Gaming Headset'], min: 999, max: 39999, pool: 'audio', seller: 1 },
+    { name: 'Earbuds', parentId: electronics.id, brand: B.audio, types: ['True Wireless Earbuds', 'Sports Earbuds', 'ANC Earbuds', 'Gaming Earbuds'], min: 799, max: 24999, pool: 'audio', seller: 1 },
+    { name: 'Smartwatches', parentId: electronics.id, brand: B.watches, types: ['Fitness Smartwatch', 'AMOLED Smartwatch', 'GPS Smartwatch', 'Calling Smartwatch'], min: 1499, max: 49999, pool: 'watches', seller: 1 },
+    { name: 'Cameras', parentId: electronics.id, brand: B.cameras, types: ['DSLR Camera', 'Mirrorless Camera', 'Action Camera', 'Instant Camera', 'Vlogging Camera'], min: 4999, max: 499999, pool: 'camera', seller: 1 },
+    { name: 'Gaming', parentId: electronics.id, brand: B.gaming, types: ['Gaming Console', 'Wireless Controller', 'Gaming Keyboard', 'Gaming Mouse', 'VR Headset'], min: 1999, max: 54999, pool: 'gaming', seller: 1 },
+    { name: 'Furniture', parentId: homeCat.id, brand: B.furniture, types: ['Office Chair', 'Study Table', 'Bookshelf', 'Coffee Table', 'Wardrobe', 'Bed Frame'], min: 2999, max: 89999, pool: 'furniture', seller: 2 },
+    { name: 'Kitchen', parentId: homeCat.id, brand: B.kitchen, types: ['Pressure Cooker', 'Non-Stick Cookware Set', 'Mixer Grinder', 'Dinner Set', 'Knife Set'], min: 499, max: 9999, pool: 'kitchen', seller: 2 },
+    { name: 'Appliances', parentId: homeCat.id, brand: B.appliances, types: ['Microwave Oven', 'Air Fryer', 'Refrigerator', 'Washing Machine', 'Air Conditioner', 'Water Purifier'], min: 4999, max: 79999, pool: 'appliances', seller: 2 },
+    { name: 'Home Decor', parentId: homeCat.id, brand: B.decor, types: ['Wall Clock', 'Table Lamp', 'Photo Frame Set', 'Decorative Vase', 'Wall Art', 'Scented Candle Set'], min: 299, max: 4999, pool: 'decor', seller: 2 },
+    { name: 'Storage', parentId: homeCat.id, brand: B.decor, types: ['Storage Box Set', 'Wardrobe Organizer', 'Shoe Rack', 'Laundry Basket', 'Foldable Storage'], min: 299, max: 3999, pool: 'decor', seller: 2 },
+    { name: 'Cricket', parentId: sportsCat.id, brand: B.sports, types: ['Cricket Bat', 'Cricket Ball Pack', 'Batting Gloves', 'Cricket Kit Bag', 'Wicket Keeping Pads'], min: 299, max: 14999, pool: 'sports', seller: 3 },
+    { name: 'Football', parentId: sportsCat.id, brand: B.sports, types: ['Football', 'Football Studs', 'Goalkeeper Gloves', 'Shin Guards'], min: 299, max: 5999, pool: 'sports', seller: 3 },
+    { name: 'Gym & Fitness', parentId: sportsCat.id, brand: B.sports, types: ['Dumbbell Set', 'Yoga Mat', 'Resistance Bands', 'Skipping Rope', 'Kettlebell'], min: 299, max: 9999, pool: 'sports', seller: 3 },
+    { name: 'Cycling', parentId: sportsCat.id, brand: B.sports, types: ['Mountain Bike', 'Road Bike', 'Cycling Helmet', 'Bike Light Set', 'Cycling Gloves'], min: 499, max: 49999, pool: 'cycling', seller: 3 },
+    { name: 'Programming Books', parentId: books.id, brand: B.pubProg, types: ['Guide to Python', 'Mastering JavaScript', 'Clean Code Handbook', 'System Design Primer', 'Algorithms Unlocked', 'Machine Learning Basics'], min: 299, max: 2999, pool: 'books', seller: 4 },
+    { name: 'Fiction', parentId: books.id, brand: B.pubFic, types: ['Mystery Novel', 'Romance Novel', 'Thriller Novel', 'Fantasy Epic', 'Historical Fiction'], min: 149, max: 999, pool: 'books', seller: 4 },
+    { name: 'Academic', parentId: books.id, brand: B.pubAcad, types: ['Engineering Textbook', 'Physics Reference', 'Mathematics Guide', 'Chemistry Handbook', 'Economics Textbook'], min: 199, max: 1999, pool: 'books', seller: 4 },
+    { name: 'Business Books', parentId: books.id, brand: B.pubBiz, types: ['Leadership Bestseller', 'Startup Playbook', 'Investing Guide', 'Marketing Strategy', 'Productivity Manual'], min: 199, max: 1499, pool: 'books', seller: 4 },
+    { name: 'Bike Accessories', parentId: autoCat.id, brand: B.automotive, types: ['Helmet', 'Bike Cover', 'Mobile Mount', 'Tank Bag', 'LED Headlight'], min: 299, max: 9999, pool: 'automotive', seller: 1 },
+    { name: 'Car Accessories', parentId: autoCat.id, brand: B.automotive, types: ['Car Phone Holder', 'Seat Cover Set', 'Dash Cam', 'Car Vacuum Cleaner', 'Air Freshener Pack'], min: 199, max: 14999, pool: 'automotive', seller: 1 },
+    { name: 'Boys Clothing', parentId: kidsCat.id, brand: B.kids, types: ['Boys T-Shirt', 'Boys Shirt', 'Boys Jeans', 'Boys Shorts Set'], min: 299, max: 1999, pool: 'kids', seller: 3 },
+    { name: 'Girls Clothing', parentId: kidsCat.id, brand: B.kids, types: ['Girls Frock', 'Girls Top & Skirt', 'Girls Leggings Set', 'Girls Party Dress'], min: 299, max: 2499, pool: 'kids', seller: 3 },
+    { name: 'School Essentials', parentId: kidsCat.id, brand: B.kids, types: ['School Backpack', 'Lunch Box', 'Kids Water Bottle', 'Geometry Box', 'Pencil Case'], min: 149, max: 1999, pool: 'school', seller: 3 },
+    { name: 'Toys', parentId: kidsCat.id, brand: B.toys, types: ['Building Blocks Set', 'Remote Control Car', 'Soft Toy', 'Puzzle Game', 'Action Figure'], min: 199, max: 4999, pool: 'toys', seller: 3 },
+  ];
+
+  // Create subcategories
+  for (const sub of SUBS) {
+    const c = await prisma.category.create({
+      data: { name: sub.name, slug: slugify(sub.name) + '-cat', description: `${sub.name} — shop the latest on Nexaris.`, parentId: sub.parentId },
+    });
+    sub.id = c.id;
   }
 
-  // Insert in batches of 100 to avoid stack limits or connection delays
-  console.log('Inserting 2000 products in batches...');
-  for (let idx = 0; idx < productDataList.length; idx += 100) {
-    const batch = productDataList.slice(idx, idx + 100);
-    await Promise.all(
-      batch.map((p) => prisma.product.create({ data: p }))
-    );
-    console.log(` -> Inserted products ${idx + 1} to ${Math.min(idx + 100, productDataList.length)}`);
+  const colors = ['Black', 'White', 'Navy', 'Grey', 'Blue', 'Maroon', 'Olive', 'Beige', 'Teal', 'Charcoal'];
+  const usedSlugs = new Set<string>();
+  const usedSkus = new Set<string>();
+  const usedNames = new Set<string>();
+  const productData: any[] = [];
+  const TARGET = 2000;
+  const perSub = Math.ceil((TARGET + SUBS.length) / SUBS.length);
+  let counter = 0;
+
+  for (const sub of SUBS) {
+    for (let n = 0; n < perSub; n++) {
+      counter++;
+      const brand = sub.brand[n % sub.brand.length];
+      const type = sub.types[Math.floor(n / sub.brand.length) % sub.types.length];
+      const color = colors[counter % colors.length];
+      const modelCode = `${brand.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()}-${1000 + counter}`;
+      let name = `${brand} ${type} – ${color} (${modelCode})`;
+      while (usedNames.has(name)) name = `${brand} ${type} – ${color} (${modelCode}-${counter})`;
+      usedNames.add(name);
+      let slug = slugify(name);
+      while (usedSlugs.has(slug)) slug = `${slug}-${counter}`;
+      usedSlugs.add(slug);
+      let sku = modelCode;
+      while (usedSkus.has(sku)) sku = `${sku}-${counter}`;
+      usedSkus.add(sku);
+
+      const price = nicePrice(sub.min, sub.max, counter);
+      const markup = 1.1 + ((counter % 11) * 0.04); // 10%–50%
+      const originalPrice = Math.max(price + 1, Math.round((price * markup) / 10) * 10 - 1);
+      const pool = POOLS[sub.pool] || POOLS.books;
+      const image = pool[n % pool.length];
+      const seller = allSellers[sub.seller % allSellers.length];
+
+      const numReviews = Math.floor(rng(counter * 7) * 6); // 0–5
+      const revs: any[] = [];
+      for (let k = 0; k < numReviews; k++) {
+        const rv = reviewers[(counter + k) % reviewers.length];
+        const rating = 3 + Math.floor(rng(counter * 13 + k) * 3); // 3–5
+        revs.push({ customerId: rv.id, rating, title: reviewTitles[(counter + k) % reviewTitles.length], content: reviewBodies[(counter + k) % reviewBodies.length], verified: true });
+      }
+
+      productData.push({
+        sellerId: seller.id,
+        categoryId: sub.id!,
+        name,
+        slug,
+        description: `${brand} ${type} in ${color}. Crafted for everyday use with premium materials and a comfortable, durable finish. Model ${modelCode}. Backed by the Nexaris Buyer Protection Guarantee with easy 7-day returns.`,
+        price,
+        originalPrice,
+        sku,
+        status: ProductStatus.PUBLISHED,
+        images: { create: [{ url: image, altText: name, isMain: true }] },
+        attributes: { create: [{ name: 'Brand', value: brand }, { name: 'Type', value: type }, { name: 'Color', value: color }, { name: 'Condition', value: 'New' }] },
+        inventory: { create: { quantity: 10 + (counter % 200), lowStockThreshold: 5 } },
+        ...(revs.length ? { reviews: { create: revs } } : {}),
+      });
+    }
+  }
+
+  console.log(`Inserting ${productData.length} unique products in batches...`);
+  for (let idx = 0; idx < productData.length; idx += 50) {
+    const batch = productData.slice(idx, idx + 50);
+    await Promise.all(batch.map((p) => prisma.product.create({ data: p })));
+    console.log(` -> Inserted ${Math.min(idx + 50, productData.length)} / ${productData.length}`);
   }
 
 

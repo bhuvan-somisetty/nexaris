@@ -54,6 +54,8 @@ interface Product {
   category: { name: string };
   seller: { sellerProfile?: { storeName: string } };
   inventory?: { quantity: number };
+  attributes?: Array<{ name: string; value: string }>;
+  reviews?: Array<{ rating: number }>;
 }
 
 interface ScoredProduct {
@@ -682,7 +684,7 @@ function DiscoveryContent() {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-300 py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
-                    <option value="relevance">Sort: Score Match</option>
+                    <option value="relevance">Sort: Relevance</option>
                     <option value="price-asc">Price: Low to High</option>
                     <option value="price-desc">Price: High to Low</option>
                   </select>
@@ -839,6 +841,14 @@ function DiscoveryContent() {
                       : 0;
                     const isOutOfStock = p.inventory && p.inventory.quantity === 0;
                     const isLowStock = p.inventory && p.inventory.quantity > 0 && p.inventory.quantity <= 10;
+                    const brand = p.attributes?.find((a) => a.name === 'Brand')?.value;
+                    const reviewCount = p.reviews?.length || 0;
+                    const rating = reviewCount > 0
+                      ? (p.reviews!.reduce((acc, r) => acc + r.rating, 0) / reviewCount)
+                      : null;
+                    const deliveryDate = new Date();
+                    deliveryDate.setDate(deliveryDate.getDate() + 2 + (p.id.charCodeAt(0) % 3));
+                    const deliveryBy = deliveryDate.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
                     return (
                       <Link
@@ -847,13 +857,6 @@ function DiscoveryContent() {
                         onClick={() => handleProductCardClick(p.id)}
                         className="group flex flex-col rounded-2xl border border-slate-900 bg-slate-950/60 overflow-hidden hover:border-slate-800 hover:bg-slate-950 transition-all duration-300 hover:shadow-lg shadow-black/25 relative"
                       >
-                        {/* Match Search Score Badge */}
-                        {debouncedSearch && (
-                          <div className="absolute top-3 left-3 bg-slate-950/90 border border-indigo-500/30 text-indigo-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg z-20 shadow-lg">
-                            Score Match: {item.score}%
-                          </div>
-                        )}
-
                         {/* Image panel */}
                         <div className="relative aspect-video w-full bg-slate-900 overflow-hidden">
                           {p.images && p.images[0] ? (
@@ -904,16 +907,25 @@ function DiscoveryContent() {
 
                         {/* Text details */}
                         <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                          <div className="space-y-1">
-                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest block font-mono">
-                              {p.category.name}
-                            </span>
-                            <h3 className="font-bold text-slate-100 group-hover:text-white line-clamp-1">
+                          <div className="space-y-1.5">
+                            {brand && (
+                              <span className="text-[11px] font-bold text-slate-300 block">
+                                {brand}
+                              </span>
+                            )}
+                            <h3 className="text-sm font-semibold text-slate-100 group-hover:text-white line-clamp-2 leading-snug">
                               {p.name}
                             </h3>
-                            <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
-                              {p.description}
-                            </p>
+                            {rating !== null ? (
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-0.5 rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                                  {rating.toFixed(1)} ★
+                                </span>
+                                <span className="text-[10px] text-slate-500">({reviewCount.toLocaleString('en-IN')})</span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-600">No ratings yet</span>
+                            )}
                           </div>
 
                           <div className="flex items-end justify-between border-t border-slate-900/60 pt-3 mt-1">
@@ -938,6 +950,9 @@ function DiscoveryContent() {
                               By {p.seller.sellerProfile?.storeName || 'Verified Seller'}
                             </span>
                           </div>
+                          <p className="text-[10px] text-emerald-400/90 font-medium -mt-2">
+                            Free delivery by {deliveryBy}
+                          </p>
                         </div>
                       </Link>
                     );
