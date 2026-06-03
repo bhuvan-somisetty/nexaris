@@ -226,12 +226,13 @@ export default function Home() {
         <section className="relative h-[78vh] min-h-[520px] w-full overflow-hidden">
           <video
             className="absolute inset-0 h-full w-full object-cover"
-            autoPlay muted loop playsInline poster=""
+            autoPlay muted loop playsInline preload="auto"
           >
             <source src="/hero-loop.mp4" type="video/mp4" />
           </video>
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/70 via-slate-950/55 to-slate-950" />
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 to-transparent" />
+          {/* Lighter overlays: keep text readable on the left, let the video show on the right */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/20 via-transparent to-slate-950" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-950/75 via-slate-950/25 to-transparent" />
 
           <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-center px-6 lg:px-8">
             <div className="max-w-2xl">
